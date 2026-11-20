@@ -1,0 +1,130 @@
+/* Moza Studio × FigCraft — Stage 2 host shell. All selectors are namespaced. */
+#mz-fc-shell[hidden] { display: none !important; }
+#mz-fc-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #f4f6fa;
+  color: #202938;
+  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  isolation: isolate;
+}
+#mz-fc-shell, #mz-fc-shell * { box-sizing: border-box; }
+#mz-fc-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  padding: 7px 12px;
+  border-bottom: 1px solid #dfe4ed;
+  background: #fff;
+  flex: none;
+}
+#mz-fc-brand { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+#mz-fc-brand strong { font-size: 14px; line-height: 1.25; }
+#mz-fc-brand small { color: #748096; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mz-fc-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(34vw, 360px);
+  color: #667085;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#mz-fc-status[data-state="dirty"] { color: #9a5a00; font-weight: 700; }
+#mz-fc-status[data-state="error"] { color: #b42318; font-weight: 700; }
+#mz-fc-actions { display: flex; align-items: center; gap: 7px; flex: none; }
+#mz-fc-shell button {
+  min-height: 34px;
+  border: 1px solid #d8deea;
+  border-radius: 8px;
+  padding: 6px 11px;
+  background: #fff;
+  color: #28344a;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+#mz-fc-shell button:hover { background: #f5f7fb; }
+#mz-fc-shell button:focus-visible { outline: 2px solid #4664e8; outline-offset: 2px; }
+#mz-fc-shell button.mz-fc-primary { background: #3a5bf0; border-color: #3a5bf0; color: #fff; }
+#mz-fc-shell button.mz-fc-primary:hover { background: #2c49d4; }
+#mz-fc-stage { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
+#mz-fc-frame {
+  display: block;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  background: #f5f5f5;
+  pointer-events: none;
+}
+#mz-fc-shell.mz-fc-active #mz-fc-frame { pointer-events: auto; }
+#mz-fc-loading {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  background: #f4f6fa;
+  color: #344054;
+  text-align: center;
+}
+#mz-fc-loading[hidden] { display: none !important; }
+#mz-fc-spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid #dce3f3;
+  border-top-color: #3a5bf0;
+  border-radius: 50%;
+  animation: mz-fc-spin .85s linear infinite;
+}
+#mz-fc-loading strong { font-size: 15px; }
+#mz-fc-loading small { max-width: 440px; color: #667085; line-height: 1.5; }
+#mz-fc-error {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: #f4f6fa;
+}
+#mz-fc-error[hidden] { display: none !important; }
+#mz-fc-error-card { width: min(480px, 100%); padding: 22px; border: 1px solid #f0c7c3; border-radius: 14px; background: #fff; box-shadow: 0 12px 36px #1b27401a; }
+#mz-fc-error-card strong { display: block; margin-bottom: 7px; color: #a12b22; font-size: 15px; }
+#mz-fc-error-message { margin: 0 0 15px; color: #5b6474; overflow-wrap: anywhere; }
+@keyframes mz-fc-spin { to { transform: rotate(360deg); } }
+@media (max-width: 760px) {
+  #mz-fc-header { min-height: 50px; gap: 7px; padding: 6px 8px; }
+  #mz-fc-brand small { display: none; }
+  #mz-fc-status { max-width: 32vw; font-size: 11px; }
+  #mz-fc-actions { gap: 5px; }
+  #mz-fc-shell button { min-height: 36px; padding: 6px 9px; font-size: 12px; }
+}
+@media (max-width: 430px) {
+  #mz-fc-header { flex-wrap: wrap; }
+  #mz-fc-brand { flex: 1 1 42%; }
+  #mz-fc-status { flex: 1 1 42%; max-width: none; justify-content: flex-end; }
+  #mz-fc-actions { width: 100%; justify-content: flex-end; }
+  #mz-fc-actions button { flex: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #mz-fc-spinner { animation-duration: 2.5s; }
+}

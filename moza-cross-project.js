@@ -193,58 +193,82 @@ async function exportCombined(){
  const button=document.querySelector('[data-a="mz47-export-combined"]');if(button)button.disabled=true;
  const setStatus=(message,error)=>{const x=status();if(x){x.textContent=message;x.style.color=error?'#b42318':'#176b3d'}};
  const prior=oldProjectState();
+ let stage=prior.doc?.name||'';
  try{
   finishEdit();
-  setStatus('Saving current project and preparing linked projects…');
-  const ok=await saveNow();if(!ok && !await store.get('atelier:p:'+myId()))throw Error('Current project could not be saved. Back up your work before exporting.');
+  setStatus('Menyimpan proyek saat ini dan menyiapkan proyek tertaut…');
+  const ok=await saveNow();if(!ok && !await store.get('atelier:p:'+myId()))throw Error('Proyek saat ini belum bisa disimpan. Cadangkan pekerjaan Anda sebelum ekspor.');
   const ids=selectedIds();await refresh();
   const known=new Set(projectIndex.map(p=>p.id));
-  for(const id of ids)if(!known.has(id))throw Error('Project is no longer available locally: '+id);
-  const loaded=new Map();
+  for(const id of ids)if(!known.has(id))throw Error('Proyek tidak lagi tersedia secara lokal: '+id);
+  /* FASE 1 (ringan): hanya struktur dokumen (tanpa data gambar) untuk memeriksa link antar-proyek dan menentukan path.
+     Data media proyek lain TIDAK dimuat di fase ini (media lokal berupa referensi IndexedDB). */
+  const docs=new Map();
   for(const id of ids){
-   if(id===myId())loaded.set(id,oldProjectState());
-   else{
-    const raw=await store.get('atelier:p:'+id);
-    if(!raw)throw Error('Project unavailable in local storage: '+(projectIndex.find(x=>x.id===id)?.name||id));
-    const saved=JSON.parse(raw);if(!saved?.doc?.pages?.length)throw Error('Project data invalid: '+id);
-    await a29HydrateLocal(saved);loaded.set(id,{pid:id,doc:saved.doc,assets:saved.assets||[],videos:saved.videos||[],fonts:saved.fonts||[],music:saved.music||null});
-   }
+   if(id===myId()){docs.set(id,{doc:prior.doc});continue}
+   const raw=await store.get('atelier:p:'+id);
+   const nm=projectIndex.find(x=>x.id===id)?.name||id;
+   if(!raw)throw Error('Proyek tidak ditemukan di penyimpanan lokal: '+nm);
+   let saved;try{saved=JSON.parse(raw)}catch(e){throw Error('Data proyek "'+nm+'" rusak dan tidak bisa dibaca.')}
+   if(!saved?.doc?.pages?.length)throw Error('Data proyek tidak valid: '+nm);
+   docs.set(id,{doc:saved.doc});
   }
-  const files=[],paths=Object.create(null),used=new Set();
+  const paths=Object.create(null),used=new Set();
   for(const id of ids){
    if(id===myId()){paths[id]='index.html';continue}
-   let base=niceSlug(loaded.get(id).doc.name),folder=base,count=2;
+   let base=niceSlug(docs.get(id).doc.name),folder=base,count=2;
    while(used.has(folder)){folder=base+'-'+(count++)}used.add(folder);
    paths[id]='projects/'+folder+'/index.html';
   }
-  for(const [id,record] of loaded){
+  for(const [id,record] of docs){
    const missing=[...linkedIds(record.doc)].filter(target=>!paths[target]);
-   if(missing.length)throw Error('"'+record.doc.name+'" links to projects not included in the ZIP: '+missing.map(target=>projectIndex.find(p=>p.id===target)?.name||target).join(', ')+'. Select every linked project first.');
+   if(missing.length)throw Error('"'+record.doc.name+'" memiliki link ke proyek yang tidak ikut dalam ZIP: '+missing.map(target=>projectIndex.find(p=>p.id===target)?.name||target).join(', ')+'. Pilih semua proyek yang ditautkan terlebih dahulu.');
   }
-  for(const id of ids) mz48DocCache.set(id,loaded.get(id).doc);
-  mz48CheckDeepLinks(loaded);
-  let totalMedia=0,totalHtml=0;
-  for(const [id,data] of loaded){
+  for(const id of ids) mz48DocCache.set(id,docs.get(id).doc);
+  mz48CheckDeepLinks(docs);
+  /* FASE 2: satu proyek per giliran: muat -> bangun -> tulis ke ZIP -> lepaskan memori. */
+  MZX.start();
+  const writer=new A33ZipWriter();
+  writer.add('.nojekyll',new Uint8Array(0));
+  let totalHtml=0,totalMedia=0,n=0;const warns=[];
+  for(const id of ids){
+   n++;const nm=docs.get(id).doc.name;stage=nm;const tag='Proyek '+n+'/'+ids.length+' "'+nm+'"';
+   setStatus(tag+': memuat data…');await MZX.tick();
+   let data;
+   if(id===myId())data=prior;
+   else{
+    const raw=await store.get('atelier:p:'+id);
+    if(!raw)throw Error('Proyek tidak ditemukan di penyimpanan lokal: '+nm);
+    const saved=JSON.parse(raw);await a29HydrateLocal(saved);
+    data={pid:id,doc:saved.doc,assets:saved.assets||[],videos:saved.videos||[],fonts:saved.fonts||[],music:saved.music||null};
+   }
+   const est=MZX.estimate(data);
+   if(est.bytes>MZX.LIMITS.zipBytes)throw Error('Media proyek "'+nm+'" sendiri sudah sekitar '+MZX.fmt(est.bytes)+', melebihi batas ZIP 4 GB. Aset terbesar: '+est.biggest.map(x=>x.name+' ('+MZX.fmt(x.bytes)+')').join(', ')+'. Kompres atau hapus aset itu dahulu.');
    Object.assign(S,data);exportContext={paths,current:id};
-   setStatus('Building website: '+data.doc.name+'…');
-   const html=siteHTML(data.doc);
+   setStatus(tag+': membangun halaman…');await MZX.tick();
+   let html,pgPre=null;MZX.beginProject(nm);try{pgPre=window.MozaPassgate?MozaPassgate.prepare(data.doc):null;html=pgPre?'':siteHTML(data.doc)}finally{MZX.stopTokens()}
+   if(pgPre)html=await MozaPassgate.finish(pgPre);
    a33VerifyExport(html);
    const prefix=paths[id].slice(0,-'index.html'.length);
-   const result=mediaFiles(html,prefix);totalMedia+=result.bytes;
-   totalHtml+=result.files[0].bytes.byteLength;
-   if(totalHtml>80*1024*1024)throw Error('Combined HTML after media separation exceeds 80 MB. Reduce embedded code or split the website into more pages.');
-   if(totalMedia>350*1024*1024)throw Error('Combined media exceed 350 MB. Compress images/videos or export fewer projects.');
-   files.push(...result.files);
+   const result=await MZX.pack(html,{prefix,label:'proyek "'+nm+'"',writer,onProgress:m=>setStatus(tag+': '+m)});html=null;
+   totalMedia+=result.bytes;totalHtml+=result.htmlBytes;
+   if(result.htmlBytes>MZX.LIMITS.warnHtml)warns.push('HTML "'+nm+'" besar ('+MZX.fmt(result.htmlBytes)+')');
+   /* lepaskan semua referensi data proyek ini sebelum lanjut */
+   restoreProjectState(prior);exportContext=null;
+   if(id!==myId()){data.assets=null;data.videos=null;data.fonts=null;data.music=null;data.doc=null}
+   data=null;await MZX.tick();
   }
-  files.unshift({name:'.nojekyll',bytes:enc.encode('')});
-  const readme=`MOZA STUDIO — COMBINED WEBSITE DEPLOY\n\nMain website: index.html\nOther projects: projects/<project-slug>/index.html\n\nUpload ALL files and folders together to a single site root (GitHub Pages, Netlify, or static hosting). Do not flatten or rename folders, because cross-project links use relative URLs.\n\n${ids.map(id=>`${loaded.get(id).doc.name}: ${paths[id]}`).join('\n')}\n\nThis is a PUBLIC WEBSITE ZIP, not an editable project backup. External services (RSVP, external embeds, fonts) still require their own setup.\n`;
-  files.push({name:'README_DEPLOY.txt',bytes:enc.encode(readme)});
-  const zip=a33Zip(files);
-  if(zip.size>450*1024*1024)throw Error('Combined ZIP too large for reliable browser export.');
+  stage='';
+  setStatus('Menyusun README dan menutup ZIP…');await MZX.tick();
+  const readme=`MOZA STUDIO — COMBINED WEBSITE DEPLOY\n\nMain website: index.html\nOther projects: projects/<project-slug>/index.html\n\nUpload ALL files and folders together to a single site root (GitHub Pages, Netlify, or static hosting). Do not flatten or rename folders, because cross-project links use relative URLs.\n\n${ids.map(id=>`${docs.get(id).doc.name}: ${paths[id]}`).join('\n')}\n\nThis is a PUBLIC WEBSITE ZIP, not an editable project backup. External services (RSVP, external embeds, fonts) still require their own setup.\n`;;
+  writer.add('README_DEPLOY.txt',enc.encode(readme));
+  const zip=writer.finish();
+  if(zip.size>MZX.LIMITS.warnZip)warns.push('ZIP besar ('+a31Fmt(zip.size)+'): jalankan "Optimasi gambar" di tiap proyek agar aman di HP dan hosting gratis');
+  if(MZX.stats.largest.length)warns.push('aset terbesar: '+MZX.stats.largest.map(x=>x.name+' ('+MZX.fmt(x.bytes)+')').join(', '));
   a33SaveBlob(zip,niceSlug(prior.doc.name)+'-combined-websites.zip');
-  setStatus('Combined ZIP ready: '+ids.length+' projects, '+files.length+' files ('+a31Fmt(zip.size)+'). Deploy all files and folders together.');
- }catch(e){console.error('[Moza Cross Project] Export failed',e);setStatus('Combined export failed: '+(e.message||e),true);toast('Multi-project export failed; original projects are unchanged',4500)}
- finally{exportContext=null;restoreProjectState(prior);busy=false;if(button)button.disabled=false}
+  setStatus('Combined ZIP siap: '+ids.length+' proyek, '+(writer.count)+' file ('+a31Fmt(zip.size)+'; '+MZX.stats.mediaFiles+' file media unik, '+MZX.stats.dups+' duplikat digabung). Deploy semua file dan folder bersama-sama.'+(warns.length?' Catatan: '+warns.join('; ')+'.':''));
+ }catch(e){console.error('[Moza Cross Project] Export failed',e);setStatus('Combined export gagal: '+MZX.explain(e,{project:stage}),true);toast('Ekspor multi-proyek gagal; proyek asli tidak diubah',4500)}
+ finally{MZX.abort();exportContext=null;restoreProjectState(prior);busy=false;if(button)button.disabled=false}
 }
 ACT['mz47-export-combined']=()=>exportCombined();
 // The bridge is included only in the generated public website. It accepts navigation
