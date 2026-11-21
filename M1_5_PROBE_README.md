@@ -1,75 +1,74 @@
-# Moza Studio × FigCraft — Probe Perangkat M1.5
+# Moza Studio × FigCraft — Probe Perangkat M1.5 v1.1.0
 
-## Fungsi
+## Tujuan
 
-Probe diagnostik khusus pengembangan untuk memeriksa API kontrol FigCraft dan perilaku perangkat tanpa mengubah fungsi inti Moza atau engine FigCraft.
+Patch ini memperbaiki hasil probe M1.5 v1.0.0. Probe tetap DEV-only dan memakai iframe FigCraft diagnostik yang terpisah dari iframe editor produksi.
 
-Probe memakai iframe terpisah dengan URL:
+Alamat aktivasi:
+
+`https://atelier-dh.github.io/moza-studio/?devprobe=1`
+
+Iframe diagnostik selalu dibuka dengan:
 
 `/figcraft/?host=parent&control=1&probe=1&session=...`
 
-Karena iframe diagnostik terpisah, dokumen uji tidak mengganti dokumen FigCraft utama yang mungkin sedang diedit. `file.new`, duplicate, paste, dan delete hanya dijalankan pada dokumen probe yang tidak disimpan ke project Moza.
+## Instalasi
 
-## Cara mengaktifkan
+1. Unduh ZIP patch ini.
+2. Ekstrak ke root repository `atelier-dh/moza-studio`.
+3. Timpa `index.html`, `moza-figcraft-probe.js`, dan `moza-figcraft-probe.css`.
+4. File `M1_5_PROBE_README.md`, `M1_5_PROBE_CHANGELOG.md`, dan `M1_5_PROBE_REPORT.md` hanya dokumentasi.
+5. Commit dan push ke branch deployment.
+6. Buka URL di atas. Jika browser masih memakai cache, lakukan hard refresh.
+7. Klik **Probe FigCraft**, lalu **Jalankan tes otomatis**.
+8. Periksa kedua screenshot sebelum/sesudah, panel font, panel asset, dan hasil command.
+9. Jalankan tes manual hanya dari HP/tablet layar sentuh. Klik **Salin laporan** untuk menyalin hasil aktual.
 
-1. Terapkan isi ZIP patch pada root repository `moza-studio` (timpa `index.html` dan tambahkan dua file probe).
-2. Commit ke branch deployment (`main`).
-3. Buka situs Moza dengan parameter DEV:
+## Perbaikan v1.1.0
 
-   `https://atelier-dh.github.io/moza-studio/?devprobe=1`
+### 1. Bukti visual teks
 
-4. Klik tombol kecil **⚙ Probe FigCraft**.
-5. Tunggu status **FigCraft probe siap · API kontrol aktif**.
-6. Klik **Jalankan tes otomatis**.
-7. Pada perangkat nyata, jalankan tes manual di canvas probe dan pilih **Lulus** atau **Gagal** untuk setiap baris.
-8. Klik **Salin laporan** lalu tempel hasilnya ke chat.
+- Menggunakan `figcraft.screenshot()` sebelum dan sesudah `ui.type` + `text.edit.insert`.
+- Kedua PNG ditampilkan berdampingan di panel.
+- Pixel comparison dilakukan terhadap dua screenshot PNG tersebut; tidak lagi bergantung pada `ui.render` atau API `pixelDiff` terpisah.
+- Jika screenshot tidak tersedia, tes menampilkan error yang sebenarnya dan tidak mengklaim bukti visual berhasil.
 
-Jika situs menggunakan URL/path lain, tambahkan `?devprobe=1` pada URL Moza yang aktif.
+### 2. Diagnostik font dan asset
 
-## Cara menonaktifkan
+- Membaca text node melalui `document.inspect`.
+- Menampilkan `fontFamily`, `fontStyle`, `fontSize`, dan cuplikan karakter tiap text node.
+- Memanggil `text.fonts` untuk memeriksa apakah family/style benar-benar tersedia di font database FigCraft.
+- Mengamati request resource iframe melalui Performance Resource Timing dan event error.
+- Memeriksa `figcraft/index.html` di situs, membaca referensi script/CSS/WASM/asset, lalu mengecek status HTTP file yang dirujuk.
+- Melaporkan file font terpisah bila direferensikan dan request font/asset yang gagal.
 
-- Tutup panel dengan tombol **Tutup** untuk menyembunyikannya selama sesi halaman.
-- Hapus parameter `devprobe=1` dari URL atau buka situs normal tanpa parameter itu untuk menyembunyikan tombol probe sepenuhnya.
+Catatan: FigCraft web build meng-embed katalog font ke WASM melalui `CRAFT_FONTS_DIR`. Karena itu, tidak adanya file `.woff`/`.ttf` di folder publik `figcraft/` bukan otomatis kesalahan. `text.fonts` memeriksa face yang tersedia di database engine. GitHub Pages tidak menyediakan directory listing umum, sehingga browser tidak dapat menampilkan seluruh isi folder `figcraft/`; probe memeriksa file yang direferensikan `index.html` dan resource yang benar-benar diminta.
 
-Probe tidak aktif pada URL normal tanpa `devprobe=1`.
+### 3. Eksekusi command nyata
 
-## Cakupan tes otomatis
+- `node.set` benar-benar mengubah karakter teks, warna fill, dan ukuran font; hasilnya diverifikasi melalui `node.get`.
+- `command.batch` benar-benar menjalankan tiga `node.create` dalam satu batch.
+- Probe memanggil satu `edit.undo`, lalu memeriksa `document.inspect` untuk memastikan ketiga node hilang bersama. Ini menguji apakah satu batch menjadi satu langkah undo.
 
-- `figcraft.commands()` dan jumlah engine command.
-- Ketersediaan 25 command/API yang diminta.
-- Dokumen uji baru, 1 rectangle, 1 text melalui `node.create`.
-- `edit.duplicate` → `edit.undo` → `edit.copy` → `edit.paste` → `edit.delete`, diverifikasi dengan `document.inspect`.
-- `ui.pointer` shift-select.
-- `ui.key` Delete, Enter, Escape.
-- `ui.type` dan `text.edit.insert`.
-- `ui.render` sebelum/sesudah teks dan perbandingan pixel untuk mendeteksi apakah render dokumen berubah.
-- `node.get` dan `document.inspect`.
+### 4. Validitas tes manual
 
-Catatan API: `figcraft.commands()` berisi engine command. Metode kontrol seperti `ui.pointer`, `ui.key`, `ui.type`, `document.inspect`, dan `node.get` juga diverifikasi lewat `figcraft.request(method, params)` agar tidak dinilai tidak tersedia hanya karena bukan engine command.
+- Jika `(pointer: coarse)` tidak terdeteksi, tes manual 5–9 otomatis berstatus **TIDAK VALID** dan tombol Lulus/Gagal tidak ditampilkan.
+- Pada tes 7–9, tombol Lulus dinonaktifkan sampai keyboard layar terdeteksi melalui perubahan `visualViewport.height`.
+- Klik Lulus yang dipicu sebelum keyboard terdeteksi tetap ditolak oleh pemeriksaan JavaScript.
 
-## Cakupan tes manual
+### 5. URL laporan
 
-5. Long-press ≥600 ms dan context menu.
-6. Double-tap.
-7. Keyboard layar pada field angka.
-8. Keyboard layar pada text editing, teks tampil, Backspace, dan prediksi teks.
-9. Apakah keyboard menutupi canvas/field yang dibutuhkan.
+- URL situs kanonis ditampilkan sebagai `https://atelier-dh.github.io/moza-studio/`.
+- Parameter `utm_source` dihapus dari URL aktual yang ditampilkan dalam laporan.
 
-Probe merekam pointer duration, `contextmenu`, `dblclick`/dua click cepat, focus target, dan perubahan `visualViewport`. Penguji tetap harus menekan **Lulus/Gagal** untuk mengonfirmasi perilaku yang terlihat.
+## Ruang lingkup / keamanan
 
-## Informasi perangkat
+- Tidak ada perubahan pada fungsi inti Moza.
+- Tidak ada perubahan pada FigCraft engine, model dokumen, renderer, clipboard, atau source Rust/WASM.
+- Tidak ada perubahan workflow GitHub Actions atau Trunk.
+- Semua command yang mengubah dokumen hanya berjalan pada dokumen uji di iframe probe terpisah.
+- Probe tidak aktif tanpa `?devprobe=1`.
 
-- User agent
-- Device Pixel Ratio
-- Viewport dan visual viewport
-- Pointer coarse/fine
-- WebGPU availability
-- WebGL2 availability
+## Menonaktifkan
 
-## File patch
-
-- `index.html`: menambahkan link CSS dan script probe pada akhir file.
-- `moza-figcraft-probe.js`: UI probe, iframe control, tes API, telemetry, report copy.
-- `moza-figcraft-probe.css`: layout responsif panel probe.
-
-Tidak ada perubahan pada `S`, `ACT`, `store`, renderer, clipboard, model elemen Moza, atau source Rust/WASM FigCraft.
+Hapus `?devprobe=1` dari URL. Tombol dan panel probe tidak akan dimuat pada URL normal.

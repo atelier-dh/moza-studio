@@ -1,36 +1,35 @@
-# Changelog — M1.5 Probe Perangkat
+# Changelog — M1.5 FigCraft Device Probe
 
-## v1.0.0 — 2026-11-21
+## v1.1.0 — 2026-11-21
+
+### Fixed
+- Mengganti bukti teks dari `ui.render` ke `figcraft.screenshot()`.
+- Mengambil dan menampilkan screenshot sebelum dan sesudah teks dimasukkan.
+- Menghitung perubahan pixel dari kedua PNG screenshot.
+- Memperbaiki status tes manual agar tidak bisa dinyatakan lulus di perangkat non-touch.
+- Mengunci tombol Lulus untuk tes keyboard sampai `visualViewport.height` menunjukkan keyboard layar.
+- Menghapus `utm_source` dari URL yang ditampilkan dalam laporan.
+- Menggunakan alamat situs kanonis `https://atelier-dh.github.io/moza-studio/`.
 
 ### Added
-- Tombol DEV-only `Probe FigCraft`, hanya tampil dengan `?devprobe=1`.
-- Panel diagnostik dengan iframe FigCraft terpisah.
-- Iframe probe dibuka dengan `?host=parent&control=1` (plus penanda `probe=1` dan session unik).
-- Same-origin dan `event.source` validation untuk handshake `figcraft:ready`.
-- Pengecekan daftar engine command lewat `figcraft.commands()`.
-- Pengecekan metode kontrol lewat `figcraft.request()`.
-- Tes dokumen baru: rectangle dan text, duplicate, undo, copy, paste, delete.
-- Verifikasi perubahan dokumen melalui `document.inspect`.
-- Tes multi-select `ui.pointer` dengan `shift: true`.
-- Tes `ui.key` Delete, Enter, Escape.
-- Tes `ui.type` dan `text.edit.insert`, termasuk render PNG sebelum/sesudah teks dan pixel-diff.
-- Telemetri long-press, context menu event, double-click, focus target, dan soft keyboard via `visualViewport`.
-- Informasi user agent, DPR, viewport, pointer coarse/fine, WebGPU, WebGL2.
-- Tombol Lulus/Gagal untuk tes manual dan tombol Salin laporan teks.
+- Diagnostik font per text node menggunakan `document.inspect` dan `text.fonts`.
+- Diagnostik request font/asset gagal melalui Performance Resource Timing dan event error.
+- Pemeriksaan file yang dirujuk `figcraft/index.html` beserta status HTTP-nya.
+- Diagnosis ringkas untuk membedakan font tidak tersedia, asset font 404, dan kemungkinan masalah renderer.
+- Eksekusi nyata `node.set` untuk mengubah teks, fill, dan font size; verifikasi melalui `node.get`.
+- Eksekusi `command.batch` dengan tiga `node.create`; satu `edit.undo` harus menghapus ketiganya.
+- Cache-buster script/style probe diperbarui menjadi `m1_5_v11`.
 
-### Safety / scope
-- Tes dijalankan pada iframe FigCraft kedua yang terisolasi, bukan iframe produksi.
-- Dokumen uji tidak disimpan ke project Moza.
-- Tidak mengubah engine FigCraft/Rust/WASM.
-- Tidak mengubah fungsi inti Moza, store, renderer, clipboard, atau model elemen.
-- Probe sepenuhnya tidak aktif tanpa query `?devprobe=1`.
+### Unchanged
+- Moza core, store, ACT/S, renderer, clipboard, document model.
+- FigCraft Rust/WASM engine.
+- GitHub Actions workflow dan konfigurasi Trunk.
+- Iframe FigCraft produksi; probe tetap memakai iframe terpisah dengan `?host=parent&control=1`.
 
-### Changed files
-- `index.html` — tambahan 3 baris di akhir file (baris 21096–21098).
-- `moza-figcraft-probe.js` — file baru.
-- `moza-figcraft-probe.css` — file baru.
-
-### Validation
-- JavaScript syntax check: passed with `node --check`.
-- Patch ZIP integrity: passed.
-- Runtime build/deploy and real-device tests: not run in this environment; require GitHub Pages and target devices.
+### Files in patch
+- `index.html`
+- `moza-figcraft-probe.js`
+- `moza-figcraft-probe.css`
+- `M1_5_PROBE_README.md`
+- `M1_5_PROBE_CHANGELOG.md`
+- `M1_5_PROBE_REPORT.md`
