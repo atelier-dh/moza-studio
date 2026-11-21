@@ -21,6 +21,7 @@ jobs:
       - name: Checkout Moza Studio and FigCraft source
         uses: actions/checkout@v4
 
+<<<<<<< HEAD
       # FigCraft's web renderer has no access to operating-system font folders.
       # Match the pinned craft-fonts revision used by the upstream FigCraft release workflow.
       - name: Checkout pinned FigCraft font assets
@@ -32,6 +33,8 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+=======
+>>>>>>> e4967cabb1eaa2b81743a984815e7218e852e8b4
       - name: Install Rust and WebAssembly target
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -43,6 +46,7 @@ jobs:
           workspaces: |
             figcraft-source -> figcraft-source/target
 
+<<<<<<< HEAD
       - name: Install pinned Trunk
         run: |
           cargo install trunk --version 0.22.1 --locked
@@ -131,6 +135,17 @@ jobs:
           echo "FigCraft embedded font manifest:"
           cat "$DIST/figcraft-fonts.json"
           ls -lh "$DIST/$WASM_FILE"
+=======
+      - name: Install wasm-opt and Trunk
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes binaryen
+          cargo install trunk --locked
+
+      - name: Build FigCraft WebAssembly application
+        working-directory: figcraft-source/apps/figcraft-web
+        run: trunk build --release
+>>>>>>> e4967cabb1eaa2b81743a984815e7218e852e8b4
 
       - name: Assemble same-origin static website
         shell: bash
@@ -139,8 +154,11 @@ jobs:
           SITE="$RUNNER_TEMP/moza-site"
           FIGCRAFT_DIST="figcraft-source/dist/web"
           test -f "$FIGCRAFT_DIST/index.html"
+<<<<<<< HEAD
           test -f "$FIGCRAFT_DIST/figcraft-fonts.json"
           test -d "$FIGCRAFT_DIST/font-licenses"
+=======
+>>>>>>> e4967cabb1eaa2b81743a984815e7218e852e8b4
           compgen -G "$FIGCRAFT_DIST/*.wasm" >/dev/null
 
           rm -rf "$SITE"
@@ -161,8 +179,11 @@ jobs:
           cp figcraft-source/packaging/web/_headers "$SITE/figcraft/_headers"
           cp figcraft-source/packaging/web/.htaccess "$SITE/figcraft/.htaccess"
           cp figcraft-source/packaging/web/README.md "$SITE/figcraft/HOSTING.md"
+<<<<<<< HEAD
           cp figcraft-source/NOTICE "$SITE/figcraft/NOTICE"
           cp figcraft-source/ATTRIBUTION.md "$SITE/figcraft/ATTRIBUTION.md"
+=======
+>>>>>>> e4967cabb1eaa2b81743a984815e7218e852e8b4
           touch "$SITE/.nojekyll"
 
           echo "Static site assembled at $SITE"
