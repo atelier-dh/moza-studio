@@ -113,6 +113,10 @@ button{cursor:pointer}
 .tcard .tb b{flex:1}
 .pagerow{display:flex;align-items:center;gap:6px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px}
 .pagerow.on{border-color:var(--acc);background:var(--acc2)}
+.wbtag{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;background:#fff1de;color:#a35a00;border:1px solid #f0c48a;font-size:10px;font-weight:700}
+.pagerow .ib.wbon{background:#fff1de;border-color:#f0c48a}
+#frame.wb{outline:3px dashed #e8890c;outline-offset:6px}
+#viewport.wb::before{content:"🛠 MEJA KERJA — halaman ini tidak ikut publish, ekspor, dan navigasi";display:block;position:sticky;top:6px;z-index:30;width:max-content;max-width:100%;margin:-34px 0 8px;padding:4px 10px;border-radius:8px;background:#e8890c;color:#fff;font:700 12px/18px system-ui,sans-serif}
 .pagerow .page-go{flex:1;min-width:0;text-align:left;border:0;background:transparent;color:inherit;padding:3px 4px;cursor:pointer;font:inherit;overflow-wrap:anywhere}.pagerow .page-go:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:6px}
 .palrow{display:flex;gap:4px;flex-wrap:wrap}
 .palrow .sw{width:22px;height:22px}
@@ -2420,7 +2424,7 @@ ${musicHTML(doc)}
 function renderCanvas(){
  if(S.editing)return;
  const fr=$('#frame'),page=curPage();
- fr.dataset.bp=S.bp;fr.style.width=BP[S.bp]+'px';fr.style.setProperty('--iz',(1/S.zoom).toFixed(3));
+ fr.dataset.bp=S.bp;fr.classList.toggle('wb',!!page.workbench);{const vp=$('#viewport');if(vp)vp.classList.toggle('wb',!!page.workbench)}fr.style.width=BP[S.bp]+'px';fr.style.setProperty('--iz',(1/S.zoom).toFixed(3));
  fr.innerHTML=`<style>${fontFaceCss(S.fonts.map(f=>f.family))}${pageRules(page,true)}</style>`+pageHTML(page,{edit:true});
  // Mirror the visible preview viewport on short pages, not only the sections' content height.
  fr.style.setProperty('--v283-viewport-height', Math.max(560, innerHeight-150)+'px');
@@ -2549,8 +2553,8 @@ function FONT(l,tag,p){
  return h+'</select></label>' }
 function LINK(tag,p,label='Link'){
  const l=gv(tag,p)||{t:'url',v:'',nt:false};let val='';
- if(l.t==='page')val=`<select data-o="${tag}" data-p="${p}.v" data-t="s" style="flex:1"><option value="">Choose page…</option>${S.doc.pages.map(pg=>`<option value="${pg.id}" ${l.v===pg.id?'selected':''}>${esc(pg.name)}</option>`).join('')}</select>`;
- else if(l.t==='section')val=`<select data-o="${tag}" data-p="${p}.v" data-t="s" style="flex:1"><option value="">Choose section…</option>${S.doc.pages.map(pg=>`<optgroup label="${esc(pg.name)}">${pg.sections.map(s=>`<option value="${s.id}" ${l.v===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</optgroup>`).join('')}</select>`;
+ if(l.t==='page')val=`<select data-o="${tag}" data-p="${p}.v" data-t="s" style="flex:1"><option value="">Choose page…</option>${pubPgs().map(pg=>`<option value="${pg.id}" ${l.v===pg.id?'selected':''}>${esc(pg.name)}</option>`).join('')}</select>`;
+ else if(l.t==='section')val=`<select data-o="${tag}" data-p="${p}.v" data-t="s" style="flex:1"><option value="">Choose section…</option>${pubPgs().map(pg=>`<optgroup label="${esc(pg.name)}">${pg.sections.map(s=>`<option value="${s.id}" ${l.v===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</optgroup>`).join('')}</select>`;
  else if(l.t==='project')val=`<select data-o="${tag}" data-p="${p}.v" data-t="s" style="flex:1;min-width:0"><option value="">Choose another project…</option>${typeof window.mozaCrossProjectChoices==='function'?window.mozaCrossProjectChoices(l.v):''}</select>`;
  else val=`<input type="text" data-o="${tag}" data-p="${p}.v" data-t="t" placeholder="https://… or mailto:" value="${esc(l.v)}" style="flex:1;min-width:0;border:1px solid var(--line);border-radius:7px;padding:5px 7px">`;
  const deep=l.t==='project'&&l.v&&typeof window.mozaCrossProjectPageOptions==='function'?`<div class="f"><span>Destination page</span><select data-o="${tag}" data-p="${p}.pg" data-t="s"><option value="">Project home / first page</option>${window.mozaCrossProjectPageOptions(l.v,l.pg||'')}</select></div><div class="f"><span>Destination section</span><select data-o="${tag}" data-p="${p}.sec" data-t="s"><option value="">Top of page</option>${window.mozaCrossProjectSectionOptions(l.v,l.pg||'',l.sec||'')}</select></div>`:'';
@@ -2674,7 +2678,7 @@ function bgEditor(tag,full){
   h+=`<div class="hint">Video latar berada di belakang tulisan, bunga, dan elemen lain. File MP4/WebM lokal atau tautan video langsung; bukan tautan halaman Drive/YouTube.</div><div class="row" style="margin:8px 0"><button class="btn pri" data-a="video-bg-upload" data-target="${tag}">⬆ Upload video background</button></div>`;
   h+=X('Video URL',tag,'bg.videoUrl',{ph:'https://domain.com/background.mp4'})+CB('Ulangi video (loop)',tag,'bg.videoLoop')+SEL('Playback',tag,'bg.videoPlayback',[[ 'auto','Autoplay' ],[ 'scroll','On Scroll (scrub)' ]],{rp:1})+((b.videoPlayback==='scroll')?N('Scroll range (px)',tag,'bg.videoScrubPixels',{min:200,max:6000,step:50}):'')+`<div class="hint">Video background selalu tanpa suara dan tanpa tombol kontrol agar autoplay di HP diizinkan.</div>`;
   if((S.videos||[]).length)h+=`<div class="lbl">Video library</div>`+(S.videos||[]).map(v=>`<button class="btn sm ${b.videoAsset===v.id?'on':''}" data-a="video-bg-pick" data-target="${tag}" data-id="${v.id}" style="margin:3px">${esc(v.name)}</button>`).join('');
-  h+=SEL('After video ends',tag,'bg.videoEndPage',[['','Do nothing'],...S.doc.pages.map(pg=>[pg.id,'Go to '+pg.name])]);
+  h+=SEL('After video ends',tag,'bg.videoEndPage',[['','Do nothing'],...pubPgs().map(pg=>[pg.id,'Go to '+pg.name])]);
   if(b.videoEndPage&&b.videoLoop!==false)h+=`<div class="bpnote">Turn off Loop to let the video reach the end and navigate.</div>`;
  }
  if(b.type!=='none'){h+=CB('Overlay',tag,'bg.ov.on',{rp:1});if(b.ov.on)h+=CL('Overlay color',tag,'bg.ov.c')+RG('Overlay opacity',tag,'bg.ov.a',{min:0,max:1,step:.01})}
@@ -2697,7 +2701,7 @@ function tabTemplates(){
  <div class="lbl">My templates</div>${S.userTpl.length?S.userTpl.map((t,i)=>`<div class="prow"><b>${esc(t.name)}</b><button class="btn sm" data-a="utpl-use" data-v="${i}">Use</button><button class="btn sm" data-a="utpl-dup" data-v="${i}">Duplicate</button><button class="btn sm dng" data-a="utpl-del" data-v="${i}">✕</button></div>`).join(''):'<div class="hint">Nothing saved yet.</div>'}
  <button class="btn" style="width:100%;margin-top:8px" data-a="tpl-save">Save current page as template</button>` }
 function tabPages(){
- return `<h3>Pages</h3>`+S.doc.pages.map(p=>`<div class="pagerow ${p.id===S.pageId?'on':''}" data-page-row="${esc(p.id)}"><button type="button" class="page-go" data-a="page-go" data-id="${esc(p.id)}" aria-current="${p.id===S.pageId?'page':'false'}"><b>${esc(p.name)}</b> <small class="hint">#/${esc(p.slug)}</small></button><button type="button" class="ib" data-a="page-dup" data-id="${esc(p.id)}" title="Duplicate">⧉</button><button type="button" class="ib" data-a="page-del" data-id="${esc(p.id)}" title="Delete" ${S.doc.pages.length<2?'disabled':''}>✕</button></div>`).join('')
+ return `<h3>Pages</h3>`+S.doc.pages.map(p=>`<div class="pagerow ${p.id===S.pageId?'on':''}" data-page-row="${esc(p.id)}"><button type="button" class="page-go" data-a="page-go" data-id="${esc(p.id)}" aria-current="${p.id===S.pageId?'page':'false'}"><b>${esc(p.name)}</b> <small class="hint">#/${esc(p.slug)}</small>${p.workbench?'<span class="wbtag">Meja Kerja</span>':''}</button><button type="button" class="ib${p.workbench?' wbon':''}" data-a="page-wb" data-id="${esc(p.id)}" title="Meja Kerja: tidak ikut publish/ekspor">🛠</button><button type="button" class="ib" data-a="page-dup" data-id="${esc(p.id)}" title="Duplicate">⧉</button><button type="button" class="ib" data-a="page-del" data-id="${esc(p.id)}" title="Delete" ${S.doc.pages.length<2?'disabled':''}>✕</button></div>`).join('')
  +`<button class="btn" style="width:100%" data-a="page-add">Add page</button><p class="hint" style="margin-top:10px">Select a page, then click an empty spot on the canvas to edit its name, URL slug and background in the right panel. Pages are linked from buttons and the navigation bar.</p>` }
 function tabNav(){
  const n=curNav(),pg=curPage();
@@ -2772,7 +2776,7 @@ function elPanel(){
  <div class="row" style="margin-top:6px">${[['l','Left'],['c','Center'],['r','Right'],['t','Top'],['m','Middle'],['b','Bottom']].map(([k,n])=>`<button class="btn sm" data-a="el-align" data-v="${k}" title="Align ${n.toLowerCase()} in section">${n}</button>`).join('')}</div>
  ${CB('Lock','el','locked',{rp:1})}${CB('Hide (all sizes)','el','hidden',{rp:1})}`);
  h+=figmaTop(el);
- h+=GRP('lay','Position & size',`<div class="f2">${N('X','el','g.x')}${N('Y','el','g.y')}${N('W','el','g.w',{min:4})}${N('H','el','g.h',{min:1})}</div>${N('Rotation','el','rot',{min:-360,max:360})}${S.bp!=='d'&&el.bp[S.bp]?`<button class="btn sm" data-a="bp-reset">Reset ${BPN[S.bp]} overrides</button>`:''}`);
+ h+=GRP('lay','Position & size',`<div class="f2">${N('X','el','g.x')}${N('Y','el','g.y')}${N('W','el','g.w',{min:4})}${N('H','el','g.h',{min:1})}</div>${N('Rotation','el','rot',{min:-360,max:360})}<div class="f2"><button class="btn sm" data-a="flip-x">Flip ↔${el.flipX?' ✓':''}</button><button class="btn sm" data-a="flip-y">Flip ↕${el.flipY?' ✓':''}</button></div>${S.bp!=='d'&&el.bp[S.bp]?`<button class="btn sm" data-a="bp-reset">Reset ${BPN[S.bp]} overrides</button>`:''}`);
  if(tx)h+=GRP('typ','Typography',`${TA(el.guestDynamic?'Sapaan bebas':'Text','el',el.guestDynamic?'guestTemplate':'text')}${FONT('Font','el','st.ff')}${N('Size','el','g.fs',{min:6,max:300})}${SEL('Weight','el','st.fw',WEIGHTS)}${CL('Color','el','st.color')}${SEG('el','st.align',[['left','Left'],['center','Center'],['right','Right'],['justify','Justify']],{rp:false})}${N('Letter spacing','el','st.ls',{step:.1})}${N('Line height','el','st.lh',{step:.05,min:.8,max:4})}${SEL('Case','el','st.tt',[['none','As typed'],['uppercase','UPPERCASE'],['lowercase','lowercase'],['capitalize','Capitalize']])}${SEL('Vertical align','el','st.va',[['top','Top'],['center','Middle'],['bottom','Bottom']])}
  ${CB('Text shadow','el','st.tsh.on',{rp:1})}${el.st.tsh.on?`<div class="f2">${N('X','el','st.tsh.x')}${N('Y','el','st.tsh.y')}${N('Blur','el','st.tsh.b',{min:0})}</div>${CL('Shadow color','el','st.tsh.c')}`:''}
  ${N('Outline width','el','st.stroke.w',{min:0,max:20,step:.5})}${el.st.stroke.w>0?CL('Outline color','el','st.stroke.c'):''}`);
@@ -2821,7 +2825,7 @@ function elSettings(el){
  if(t==='video')h+=X('Video URL','el','url',{rp:1,ph:'https://website.com/video.mp4'})
   +`<div class="row" style="margin:6px 0"><button class="btn sm pri" data-a="video-el-upload">⬆ Upload video</button></div>`
   +((S.videos||[]).length?`<div class="hint">Choose an uploaded video:</div>`+(S.videos||[]).map(v=>`<button class="btn sm ${el.videoAsset===v.id?'on':''}" data-a="video-el-pick" data-id="${v.id}" style="margin:3px">${esc(v.name)}</button>`).join(''):'')
-  +SEL('Playback Mode','el','playbackMode',[[ 'click','On Click / Tap' ],[ 'auto','Autoplay' ],[ 'scroll','On Scroll (Scroll-Scrub)' ],[ 'ended','On Video End → Next Page' ]],{rp:1})+CB('Show video controls','el','videoControls')+CB('Loop video','el','videoLoop')+((el.playbackMode==='scroll')?N('Scroll distance (px)','el','scrubPixels',{min:200,max:6000,step:50}):'')+((el.playbackMode==='ended')?SEL('Next page','el','videoOnEndPage',[[ '', 'Choose page…' ],...S.doc.pages.map(p=>[p.id,p.name])]):'')
+  +SEL('Playback Mode','el','playbackMode',[[ 'click','On Click / Tap' ],[ 'auto','Autoplay' ],[ 'scroll','On Scroll (Scroll-Scrub)' ],[ 'ended','On Video End → Next Page' ]],{rp:1})+CB('Show video controls','el','videoControls')+CB('Loop video','el','videoLoop')+((el.playbackMode==='scroll')?N('Scroll distance (px)','el','scrubPixels',{min:200,max:6000,step:50}):'')+((el.playbackMode==='ended')?SEL('Next page','el','videoOnEndPage',[[ '', 'Choose page…' ],...pubPgs().map(p=>[p.id,p.name])]):'')
   +(el.playbackMode==='scroll'?`<button class="btn sm" data-a="cinema-space" style="margin:5px 0">↕ Add scroll space to section</button>`:'')
   +`<div class="hint">Scroll-Scrub is supported for direct MP4/WebM sources (upload or direct URL), not YouTube/Drive embeds. On Video End automatically disables looping and navigates to the selected page. For custom triggers, use Prototype → When video ends. Disable Loop, then set Prototype → On video end → Navigate to page to play an invitation sequence without delays. If controls are hidden, taps on the video cannot pause it.</div>`+videoExtra(el);
  if(TEXTY.includes(t))h+=`<div class="lbl" id="guest-settings-heading">Nama tamu & sapaan</div>`
@@ -3394,6 +3398,8 @@ const ACT={
  'el-z':b=>{const el=T('el');commit(discrete());zOrder(el,b.dataset.v);renderCanvas();if(S.tab==='layers')renderLeft()},
  'el-align':b=>{const el=T('el');commit(discrete());alignEl(el,b.dataset.v);renderCanvas();renderRight()},
  'bp-reset':()=>{const el=T('el');commit(discrete());delete el.bp[S.bp];renderCanvas();renderRight()},
+ 'flip-x':()=>{const el=T('el');commit(discrete());el.flipX=!el.flipX;renderCanvas();renderRight()},
+ 'flip-y':()=>{const el=T('el');commit(discrete());el.flipY=!el.flipY;renderCanvas();renderRight()},
  tplcat:b=>{S.tplCat=b.dataset.v;renderLeft()},
  'tpl-prev':b=>previewTpl(TEMPLATES.find(t=>t.id===b.dataset.v).build(),b.dataset.v,false),
  'tpl-use':b=>{if(!confirm('Replace this page with the template? You can undo this.'))return;applyTemplate(TEMPLATES.find(t=>t.id===b.dataset.v).build())},
@@ -3410,6 +3416,7 @@ const ACT={
   const vp=$('#viewport');if(vp){vp.scrollTop=0;vp.scrollLeft=0;}
  },
  'page-add':()=>{commit(discrete());const n=S.doc.pages.length+1,p={id:uid('p'),name:'Page '+n,slug:'page-'+n,title:'Page '+n,bg:defBg(),navOwn:false,nav:null,sections:[SECT.hero({title:'New page'}),SECT.footer({name:S.doc.name})]};S.doc.pages.push(p);S.pageId=p.id;S.sel=null;renderAll()},
+ 'page-wb':b=>{const p=S.doc.pages.find(x=>x.id===b.dataset.id);if(!p)return;if(!p.workbench){if(S.doc.pages.filter(q=>!q.workbench&&q.id!==p.id).length<1){toast('Harus ada minimal satu halaman yang ikut publish');return}if(S.doc.start===p.id){toast('Halaman awal tidak bisa dijadikan Meja Kerja');return}}commit(discrete());if(p.workbench)delete p.workbench;else p.workbench=true;renderAll();scheduleSave();toast(p.workbench?'Meja Kerja: halaman ini tidak ikut publish/ekspor':'Halaman kembali ikut publish')},
  'page-dup':b=>{const p=S.doc.pages.find(x=>x.id===b.dataset.id);commit(discrete());const c=clone(p);c.id=uid('p');c.name+=' copy';c.slug=slugify(p.slug+'-copy');reidDoc(c.sections,c.nav||undefined);S.doc.pages.splice(S.doc.pages.indexOf(p)+1,0,c);S.pageId=c.id;renderAll()},
  'page-del':b=>{if(S.doc.pages.length<2||!confirm('Delete this page?'))return;commit(discrete());S.doc.pages=S.doc.pages.filter(p=>p.id!==b.dataset.id);S.pageId=S.doc.pages[0].id;S.sel=null;renderAll()},
  'theme-add':()=>{commit(discrete());S.doc.theme.colors.push({id:uid('c'),name:'Color '+(S.doc.theme.colors.length+1),value:'#888888'});renderRight()},
@@ -3621,6 +3628,7 @@ const EDIT2=`
 .mq{position:absolute;border:1px solid var(--acc);background:rgba(58,91,240,.1);z-index:95;pointer-events:none}
 .ixb{position:absolute;right:calc(-8px*var(--iz));top:calc(-8px*var(--iz));background:#f5a524;color:#fff;font:700 calc(11px*var(--iz)) system-ui;padding:0 calc(5px*var(--iz));border-radius:99px;z-index:88;pointer-events:none;line-height:1.5}
 .ixb.fxb{right:auto;left:calc(-8px*var(--iz));background:#7a3cf0}
+.ixb.agb{top:calc(10px*var(--iz));background:#0e9f9a}
 .sec.ovs{background:#c9ceda;padding:calc(28px) 0 20px}
 .ovlabel{position:absolute;left:12px;top:6px;font:600 calc(12px*var(--iz)) system-ui;color:#33405a;z-index:5}
 #frame.edit .el.group.entered{outline:calc(1.5px*var(--iz)) dashed #8aa0ff}
@@ -3692,12 +3700,18 @@ function maskClip(g){
  if(o)return `polygon(${o.map(p=>`${f((m.x+p[0]*m.w)/gw*100)}% ${f((m.y+p[1]*m.h)/gh*100)}%`).join(',')})`;
  const r=t==='rrect'?a150RadiusCss(m):((m.st&&m.st.br)||0)+'px';
  return `inset(${f(m.y/gh*100)}% ${f((1-(m.x+m.w)/gw)*100)}% ${f((1-(m.y+m.h)/gh)*100)}% ${f(m.x/gw*100)}% round ${r})` }
+const SGS_KIDS=new WeakSet();
 function groupHTML(g,ctx){
  if(g.mask&&g.children.length>1){
   const m=g.children[g.children.length-1],clip=maskClip(g);
   return `<div class="gcl" style="clip-path:${clip};-webkit-clip-path:${clip}">${g.children.slice(0,-1).map(c=>elHTML(c,ctx,g)).join('')}</div>`
    +(ctx.edit&&S.inGroup===g.id?`<div style="position:absolute;left:${m.x/g.gw*100}%;top:${m.y/g.gh*100}%;width:${m.w/g.gw*100}%;height:${m.h/g.gh*100}%;outline:1px dashed #ff3d7f;pointer-events:none"></div>`:'')}
- return `<div class="gcl">${g.children.map(c=>elHTML(c,ctx,g)).join('')}</div>` }
+ return `<div class="gcl">${g.children.map(c=>{if(g.stateGroup&&!ctx.edit)SGS_KIDS.add(c);else SGS_KIDS.delete(c);return elHTML(c,ctx,g)}).join('')}</div>` }
+/* STAGE 5 / L2b: Grup Animasi (State Group). Anak grup = state berurutan; transisi i = dari state i ke i+1. Tanpa ID elemen. */
+const SG_EASE=[['ease','Ease'],['linear','Linear'],['ease-in','Ease in'],['ease-out','Ease out'],['ease-in-out','Ease in-out'],['cubic-bezier(.34,1.56,.64,1)','Ease out back']];
+function sgDefault(n){const a=[];for(let i=0;i<Math.max(0,n-1);i++)a.push({tr:i===0?'click':'delay',delay:i===0?0:.01,anim:'smart',dur:600,ease:'ease'});return{trans:a}}
+function sgNorm(el){const n=(el.children||[]).filter(c=>!c.hidden).length,d=sgDefault(n);el.stateGroup=el.stateGroup||{trans:[]};const t=el.stateGroup.trans=el.stateGroup.trans||[];for(let i=0;i<d.trans.length;i++)t[i]=Object.assign({},d.trans[i],t[i]||{});t.length=d.trans.length;return el.stateGroup}
+function sgOut(el){const tmp=JSON.parse(JSON.stringify({stateGroup:el.stateGroup,children:el.children||[]}));return sgNorm(tmp).trans.map(t=>({tr:t.tr==='delay'?'delay':'click',delay:Math.max(0,+t.delay||0),anim:['smart','dissolve','instant'].includes(t.anim)?t.anim:'smart',dur:Math.max(0,+t.dur||0),ease:String(t.ease||'ease')}))}
 const slugName=el=>String(el.name||el.type).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'el';
 function ixOut(el){
  return el.ix.map(x=>{
@@ -3754,8 +3768,8 @@ function elHTML(el,ctx,pg){
  let gst='';
  if(pg&&!pg._responsiveGroup)gst=`left:${el.x/pg.gw*100}%;top:${el.y/pg.gh*100}%;width:${el.w/pg.gw*100}%;height:${el.h/pg.gh*100}%;transform:rotate(${el.rot||0}deg);`+(TEXTY.includes(el.type)?`font-size:${el.st.fs}px;`:'');
  const ix=!edit&&hasIx?` data-ix='${esc(JSON.stringify(ixOut(el))).replace(/'/g,'&#39;')}'`:'';
- const sa=!edit?` data-sa="${esc(slugName(el))}" data-proto-set="${esc(String(el.protoSet||'').trim())}"`:"";
- const badge=edit?((S.mode==='proto'&&hasIx?`<i class="ixb">⚡${el.ix.length}</i>`:'')+(el.scr==='fixed'?'<i class="ixb fxb">FIXED</i>':'')):'';
+ const sa=!edit?` data-sa="${esc(slugName(el))}" data-sr="${+el.rot||0}" data-sf="${el.flipX?-1:1},${el.flipY?-1:1}" data-proto-set="${esc(String(el.protoSet||'').trim())}"${(el.animGroup&&el.type==='group')||SGS_KIDS.has(el)?' data-ag="1"':''}${SGS_KIDS.has(el)?' data-sgs="1"':''}${el.stateGroup&&el.type==='group'&&!el.mask?` data-sg='${esc(JSON.stringify(sgOut(el))).replace(/'/g,'&#39;')}'`:''}`:"";
+ const badge=edit?((S.mode==='proto'&&hasIx?`<i class="ixb">⚡${el.ix.length}</i>`:'')+(S.mode==='proto'&&((el.animGroup&&el.type==='group')||el.stateGroup)?`<i class="ixb agb">${el.stateGroup?'SG '+((el.children||[]).length):'AG'}</i>`:'')+(el.scr==='fixed'?'<i class="ixb fxb">FIXED</i>':'')):'';
  const cls=`el e-${el.id}${!edit&&el.protoHidden?' p-state-hidden':''}${el.type==='group'?' group':''}${S.inGroup===el.id?' entered':''}${sel?' selected':''}${el.locked?' lock':''}`;
  return `<div class="${cls}" data-id="${el.id}"${!edit&&el.protoHidden?' data-proto-initial="1"':''}${ix}${sa}${fxAttrs(el,edit)}${!edit&&el.motion?.enabled?` data-motion='${esc(JSON.stringify(el.motion)).replace(/'/g,'&#39;')}'`:''} style="${elStyle(el)}${gst}">${inner}${pe}${handles}${badge}</div>` }
 
@@ -3816,7 +3830,7 @@ function pageHTML(page,ctx){
  const pgGrip=edit?`<button class="v283-page-grip" type="button" data-v283-pageheight="${page.id}" title="Drag to adjust page minimum height" aria-label="Drag to adjust page minimum height">↕ Page height</button>`:'';
  return `<div class="pg" data-slug="${esc(page.slug)}" data-title="${esc(page.title||page.name)}"${!edit&&S.doc.start===page.id?' data-start':''}${protoAttrs}>${bgHTML(page.bg)}${top}${secs}${bottom}${pgGrip}</div>` }
 function overlaysHTML(doc){
- return doc.pages.flatMap(p=>p.sections.filter(s=>s.kind==='overlay')).map(s=>
+ return wbPages(doc).flatMap(p=>p.sections.filter(s=>s.kind==='overlay')).map(s=>
   `<div class="ovw" id="o-${s.id}" role="dialog" aria-modal="true" aria-label="${esc(s.name)}" hidden><div class="ovd"></div><div class="ovp" tabindex="-1" style="--ow:${s.ow||480}px">${secHTML(s,null,{edit:false})}</div></div>`).join('') }
 
 /* ---------- published runtime (stringified into the site, must stay self-contained ES5) ---------- */
@@ -3855,22 +3869,57 @@ function siteRuntime(){
   navs.forEach(function(n){var items=[].slice.call(n.querySelectorAll('.nv-i')),anySec=false;
    items.forEach(function(a){var on=false;if(a.dataset.sc){on=a.dataset.pg===slug&&a.dataset.sc===cs;if(on)anySec=true}a.classList.toggle('on',on);if(on)a.setAttribute('aria-current','true');else a.removeAttribute('aria-current')});
    if(!anySec)items.forEach(function(a){if(!a.dataset.sc&&a.dataset.pg===slug){a.classList.add('on');a.setAttribute('aria-current','page')}})})}
- function rectOf(e){var r=e.getBoundingClientRect(),cs=getComputedStyle(e);return{l:r.left,t:r.top,w:r.width,h:r.height,op:cs.opacity,bg:cs.backgroundColor,c:cs.color,br:cs.borderRadius}}
- function smart(old,pg,d,ez){
-  [].slice.call(pg.querySelectorAll('[data-sa]')).forEach(function(e){var o=old[e.getAttribute('data-sa')],n=rectOf(e);
+ function rectOf(e){var r=e.getBoundingClientRect(),cs=getComputedStyle(e),sf=(e.getAttribute('data-sf')||'1,1').split(',');return{l:r.left,t:r.top,w:r.width,h:r.height,cx:r.left+r.width/2,cy:r.top+r.height/2,lw:e.offsetWidth||r.width,lh:e.offsetHeight||r.height,rot:parseFloat(e.getAttribute('data-sr'))||0,sx:parseFloat(sf[0])||1,sy:parseFloat(sf[1])||1,op:cs.opacity,bg:cs.backgroundColor,c:cs.color,br:cs.borderRadius}}
+ var SAEP=String.fromCharCode(31);
+  /* Stage 5 / Langkah 2: elemen di dalam Grup Animasi (data-ag) dipasangkan lewat jalur nama layer relatif ke grup;
+     nama kembar dipasangkan berurutan (urutan anak). Di luar Grup Animasi: kunci lama (slug), tidak berubah. */
+  function saKeys(root){var out=[],cnt={},ags=[].slice.call(root.querySelectorAll('[data-ag]'));
+   [].slice.call(root.querySelectorAll('[data-sa]')).forEach(function(e){
+    var g=null,parts=[e.getAttribute('data-sa')];
+    for(var a=e.parentElement;a;a=a.parentElement){
+     if(a.hasAttribute('data-ag')){g=a;break}
+     if(a===root)break;
+     if(a.hasAttribute('data-sa'))parts.unshift(a.getAttribute('data-sa'))}
+    if(!g){out.push({e:e,k:e.getAttribute('data-sa')});return}
+    var gk='';
+    if(g!==root){var gs=g.getAttribute('data-sa'),n=0;for(var i=0;i<ags.length;i++){if(ags[i]===g)break;if(ags[i].getAttribute('data-sa')===gs)n++}gk=gs+'#'+n}
+    var base='ag'+SAEP+gk+SAEP+parts.join(SAEP);cnt[base]=(cnt[base]||0)+1;
+    out.push({e:e,k:base+SAEP+'#'+cnt[base]})})
+   return out}
+  function saCollect(root,into){into=into||{};saKeys(root).forEach(function(q){if(!into[q.k])into[q.k]=rectOf(q.e)});return into}
+  function smart(old,pg,d,ez){
+  saKeys(pg).forEach(function(q){var e=q.e,o=old[q.k],n=rectOf(e);
    try{if(!o){e.animate([{opacity:0},{opacity:n.op}],{duration:d,easing:ez});return}
-    e.animate([{transformOrigin:'0 0',translate:(o.l-n.l)+'px '+(o.t-n.t)+'px',scale:(o.w/Math.max(n.w,1))+' '+(o.h/Math.max(n.h,1)),opacity:o.op,backgroundColor:o.bg,color:o.c,borderRadius:o.br},{transformOrigin:'0 0',translate:'0px 0px',scale:'1 1',opacity:n.op,backgroundColor:n.bg,color:n.c,borderRadius:n.br}],{duration:d,easing:ez})}catch(x){}})}
- function arm(pg){timers.forEach(clearTimeout);timers=[];
-  [].slice.call(pg.querySelectorAll('[data-ix]')).forEach(function(n){JSON.parse(n.getAttribute('data-ix')).forEach(function(ix){if(ix.tr==='delay')timers.push(setTimeout(function(){run(n,ix)},ix.delay*1000))})})}
+    var dr=o.rot-n.rot;while(dr>180)dr-=360;while(dr<-180)dr+=360;
+    e.animate([{transformOrigin:'50% 50%',translate:(o.cx-n.cx)+'px '+(o.cy-n.cy)+'px',rotate:dr+'deg',scale:(o.sx*o.lw/Math.max(n.lw,1))+' '+(o.sy*o.lh/Math.max(n.lh,1)),opacity:o.op,backgroundColor:o.bg,color:o.c,borderRadius:o.br},{transformOrigin:'50% 50%',translate:'0px 0px',rotate:'0deg',scale:n.sx+' '+n.sy,opacity:n.op,backgroundColor:n.bg,color:n.c,borderRadius:n.br}],{duration:d,easing:ez})}catch(x){}})}
+  function inHiddenSet(n,stop){for(var a=n;a&&a!==stop;a=a.parentElement){if(a.classList&&a.classList.contains('p-state-hidden')&&((a.getAttribute('data-proto-set')||'').trim()||a.hasAttribute('data-sgs')))return true}return false}
+  /* Stage 5 / Langkah 2b: Grup Animasi (data-sg). State = anak langsung grup, berdasarkan URUTAN (tanpa ID). Aman di-copy-paste. */
+  function sgStates(g){var c=g.querySelector('.gcl');return c?[].slice.call(c.children).filter(function(e){return e.classList.contains('el')}):[]}
+  function sgCfg(g){if(!g.__sgt){try{g.__sgt=JSON.parse(g.getAttribute('data-sg'))||[]}catch(x){g.__sgt=[]}}return g.__sgt}
+  function sgPrep(g,reset){var st=sgStates(g);if(st.length<2)return false;
+   if(!g.__sgb){g.__sgb=1;if(sgCfg(g).some(function(t){return t.tr==='click'}))g.style.cursor='pointer';
+    g.addEventListener('click',function(){var i=g.__sgi||0,t=sgCfg(g)[i];if(t&&t.tr==='click'&&i<sgStates(g).length-1)sgGo(g,i+1)})}
+   if(reset||g.__sgi==null){g.__sgi=0;st.forEach(function(s,k){s.classList.toggle('p-state-hidden',k!==0)})}return true}
+  function sgGo(g,to){var st=sgStates(g),from=g.__sgi||0,t=sgCfg(g)[from]||{},dest=st[to],old=st[from];if(!dest||!old||to===from)return;
+   var an=t.anim||'smart',d=Math.max(0,Number(t.dur)||0),ez=t.ease||'ease',oldR=an==='smart'?saCollect(old):null;
+   st.forEach(function(s,k){s.classList.toggle('p-state-hidden',k!==to)});g.__sgi=to;
+   if(an!=='instant'&&d&&dest.animate){try{if(oldR)smart(oldR,dest,d,ez);else dest.animate([{opacity:0},{opacity:1}],{duration:d,easing:ez})}catch(x){}}
+   var off=an==='instant'?0:d;armIn(dest,null,off);sgSched(g,off)}
+  function sgSched(g,off){var i=g.__sgi||0,t=sgCfg(g)[i];if(t&&t.tr==='delay'&&i<sgStates(g).length-1)timers.push(setTimeout(function(){if(g.__sgi===i&&visible(g))sgGo(g,i+1)},(Number(t.delay)||0)*1000+(off||0)))}
+  function sgInit(root,off){var gs=[].slice.call(root.querySelectorAll('[data-sg]'));if(root.hasAttribute&&root.hasAttribute('data-sg'))gs.unshift(root);gs.forEach(function(g){if(sgPrep(g,true))sgSched(g,off)})}
+  function armIn(root,stop,off){sgInit(root,off);var ns=[].slice.call(root.querySelectorAll('[data-ix]'));if(root.hasAttribute&&root.hasAttribute('data-ix'))ns.unshift(root);
+   ns.forEach(function(n){if(inHiddenSet(n,stop))return;JSON.parse(n.getAttribute('data-ix')).forEach(function(ix){if(ix.tr==='delay')timers.push(setTimeout(function(){if(!inHiddenSet(n,stop))run(n,ix)},ix.delay*1000+(off||0)))})})}
+  function arm(pg,off){timers.forEach(clearTimeout);timers=[];armIn(pg,null,off)}
+  [].slice.call(document.querySelectorAll('[data-sg]')).forEach(function(g){sgPrep(g,true)});
  function route(){
   var h=location.hash.replace(/^#\/?/,'').split('/'),slug=h[0]||startPg.dataset.slug,pg=pgs.filter(function(p){return p.dataset.slug===slug})[0]||startPg,prev=cur(),an=pend;pend=null;
-  var old=null;if(an&&an.anim==='smart'&&prev&&prev!==pg){old={};[].slice.call(prev.querySelectorAll('[data-sa]')).forEach(function(e){var k=e.getAttribute('data-sa');if(!old[k])old[k]=rectOf(e)})}
+  var old=null;if(an&&an.anim==='smart'&&prev&&prev!==pg){old=saCollect(prev)}
   closeAllOv();
   pgs.forEach(function(p){p.hidden=p!==pg});
   if(prev!==pg||!pg.__protoVisited){[].slice.call(pg.querySelectorAll('.el[data-id],.sec[data-proto-initial]')).forEach(function(n){n.classList.toggle('p-state-hidden',n.getAttribute('data-proto-initial')==='1')});pg.__protoVisited=true}
   document.title=pg.dataset.title||document.title;nvh();
   var t=h[1]&&document.getElementById('s-'+h[1]);if(t)t.scrollIntoView();else scrollTo(0,0);
-  closeAll();act();arm(pg);
+  closeAll();act();arm(pg,an&&an.anim==='smart'&&prev!==pg?(an.dur||300):0);
   if(an&&prev!==pg&&pg.animate){var d=an.dur||300,ez=an.ease||'ease';
    try{if(an.anim==='smart'&&old)smart(old,pg,d,ez);
    else if(an.anim==='dissolve')pg.animate([{opacity:0},{opacity:1}],{duration:d,easing:ez});
@@ -3909,15 +3958,19 @@ function siteRuntime(){
    var dest=[].slice.call(pg.querySelectorAll('.el[data-id],.sec[data-sec]')).filter(function(t){return t.getAttribute('data-id')===ix.target||t.getAttribute('data-sec')===ix.target})[0];
    if(!dest||dest===n||dest.contains(n))return;
    var wasHidden=dest.classList.contains('p-state-hidden');
+   var smartOld=null;
    if(a==='switch'){
-    var setName=(dest.getAttribute('data-proto-set')||'').trim();
+    var setName=(dest.getAttribute('data-proto-set')||'').trim(),sm=ix.anim==='smart';
     if(setName){[].slice.call(pg.querySelectorAll('.el[data-proto-set],.sec[data-proto-set]')).forEach(function(t){
-     if(t!==dest&&t.getAttribute('data-proto-set')===setName&&!t.contains(n)&&!n.contains(t))t.classList.add('p-state-hidden');
+     if(t!==dest&&t.getAttribute('data-proto-set')===setName&&!t.classList.contains('p-state-hidden')){
+      if(sm){smartOld=saCollect(t,smartOld)}
+      if((sm||!t.contains(n))&&!n.contains(t))t.classList.add('p-state-hidden')}
     })}
    }
    var show=a==='show'||a==='switch'||(a==='toggle'&&wasHidden);
    dest.classList.toggle('p-state-hidden',!show);
-   if(show&&wasHidden&&ix.anim!=='instant'&&dest.animate){try{dest.animate([{opacity:0},{opacity:1}],{duration:Math.max(0,Number(ix.dur)||300),easing:ix.ease||'ease'})}catch(e){}}
+   if(show&&wasHidden&&ix.anim!=='instant'&&dest.animate){try{if(smartOld)smart(smartOld,dest,Math.max(0,Number(ix.dur)||300),ix.ease||'ease');else dest.animate([{opacity:0},{opacity:1}],{duration:Math.max(0,Number(ix.dur)||300),easing:ix.ease||'ease'})}catch(e){}}
+   if(show&&wasHidden)armIn(dest,null,ix.anim==='smart'?Math.max(0,Number(ix.dur)||300):0);
   }
   else if(a==='reveal'&&ix.target){
    var dest=[].slice.call(document.querySelectorAll('.el[data-id]')).filter(function(t){return t.getAttribute('data-id')===ix.target})[0];
@@ -4022,19 +4075,22 @@ function siteRuntime(){
  addEventListener('resize',a25Schedule);addEventListener('hashchange',function(){setTimeout(a25Schedule,20)});addEventListener('scroll',a25Schedule,{passive:true});document.addEventListener('click',function(e){if(e.target.closest('.nv-i'))setTimeout(a25Schedule,25)});setTimeout(a25Schedule,60);
 }
 
+/* STAGE 5 / L1: Meja Kerja = halaman dengan flag page.workbench. Tidak ikut publish/ekspor/navigasi. */
+function wbPages(doc){const a=(doc&&doc.pages)||[],b=a.filter(p=>!p.workbench);return b.length?b:a}
+function pubPgs(){return wbPages(S.doc)}
 function siteHTML(doc,opt={}){
  const keepStart=doc.start;if(opt.start)doc.start=opt.start;
  try{
   const names=usedFonts(doc),built=GOOGLE.filter(g=>names.includes(g[0]));
-  let rules='';for(const p of doc.pages)rules+=pageRules(p,false);
-  const smooth=[doc.nav,...doc.pages.filter(p=>p.navOwn&&p.nav).map(p=>p.nav)].some(n=>n.scroll.smooth);
-  const body=doc.pages.map(p=>pageHTML(p,{edit:false})).join('\n');
+  let rules='';for(const p of wbPages(doc))rules+=pageRules(p,false);
+  const smooth=[doc.nav,...wbPages(doc).filter(p=>p.navOwn&&p.nav).map(p=>p.nav)].some(n=>n.scroll.smooth);
+  const body=wbPages(doc).map(p=>pageHTML(p,{edit:false})).join('\n');
   const siteCss=$('#sitecss').textContent;
   return `<!doctype html>
 <html lang="en" data-snap="${esc(doc.cinema?.snap||'off')}" data-page-transition="${esc(doc.cinema?.transition||'fade')}" data-transition-ms="${Number(doc.cinema?.duration)||500}" data-bp="d"${opt.hot?' class="hot"':''}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(doc.pages[0].title||doc.name)}</title>
+<title>${esc(wbPages(doc)[0].title||doc.name)}</title>
 <meta name="generator" content="Atelier">
-${(()=>{const s=doc.socialPreview||{};const title=s.title||doc.pages[0].title||doc.name,description=s.description||'',image=s.imageUrl&&/^https:\/\//i.test(s.imageUrl)?s.imageUrl:at16SocialUrl();const target=(at15Selected()?.rsvp?.publicUrl||'');return `<meta property="og:type" content="website"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(description)}">${image?`<meta property="og:image" content="${esc(image)}"><meta name="twitter:card" content="summary_large_image">`:''}${target?`<meta property="og:url" content="${esc(target)}">`:''}`})()}
+${(()=>{const s=doc.socialPreview||{};const title=s.title||wbPages(doc)[0].title||doc.name,description=s.description||'',image=s.imageUrl&&/^https:\/\//i.test(s.imageUrl)?s.imageUrl:at16SocialUrl();const target=(at15Selected()?.rsvp?.publicUrl||'');return `<meta property="og:type" content="website"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(description)}">${image?`<meta property="og:image" content="${esc(image)}"><meta name="twitter:card" content="summary_large_image">`:''}${target?`<meta property="og:url" content="${esc(target)}">`:''}`})()}
 ${built.map(g=>`<link rel="stylesheet" href="${gUrl(g)}" media="print" onload="this.media='all'">`).join('\n')}
 <style>${fontFaceCss(names)}
 html{${smooth?'scroll-behavior:smooth;':''}}body{margin:0;font-family:${fam('$body')};color:${col('tok:ink')}}
@@ -4419,8 +4475,8 @@ function newIx(o={}){return{id:uid('x'),tr:'click',delay:0,key:'',act:'page',pag
 const ANIMS=[['instant','Instant'],['dissolve','Dissolve'],['smart','Smart animate'],['slideL','Move in from right'],['slideR','Move in from left'],['slideU','Move in from bottom'],['slideD','Move in from top']];
 function ixBlock(el,x,i){
  const P=`ix.${i}`;
- const pages=S.doc.pages.map(p=>[p.id,p.name]),secs=S.doc.pages.flatMap(p=>p.sections.filter(s=>s.kind!=='overlay').map(s=>[s.id,`${p.name} › ${s.name}`]));
- const ovs=S.doc.pages.flatMap(p=>p.sections.filter(s=>s.kind==='overlay').map(s=>[s.id,s.name]));
+ const pages=pubPgs().map(p=>[p.id,p.name]),secs=pubPgs().flatMap(p=>p.sections.filter(s=>s.kind!=='overlay').map(s=>[s.id,`${p.name} › ${s.name}`]));
+ const ovs=pubPgs().flatMap(p=>p.sections.filter(s=>s.kind==='overlay').map(s=>[s.id,s.name]));
  let h=`<div class="navitem" style="padding:6px 10px 8px">`+SEL('Trigger','el',`${P}.tr`,[['click','On click / tap'],['hover','On hover'],['leave','On mouse leave'],['delay','After delay'],['view','When scrolled into view'],['key','On key press'],...(el.type==='video'?[['ended','When video ends']]:[])] ,{rp:1});
  if(x.tr==='delay')h+=N('Delay (s)','el',`${P}.delay`,{min:0,step:.1});
  if(x.tr==='key')h+=X('Key','el',`${P}.key`,{ph:'Escape, a, Enter…'});
@@ -4449,10 +4505,18 @@ function ixBlock(el,x,i){
 
  if(x.act==='overlay'||x.act==='swap')h+=ovs.length?SEL('Overlay','el',`${P}.ov`,[['','Choose…'],...ovs]):'<div class="hint">No overlays yet. Add one from Elements → Sections → Overlay (modal).</div>';
  if(x.act==='url')h+=X('URL','el',`${P}.url`)+CB('New tab','el',`${P}.nt`);
- if(['page','overlay','swap','reveal','show','hide','toggle','switch'].includes(x.act))h+=SEL('Animation','el',`${P}.anim`,ANIMS)+N('Duration (ms)','el',`${P}.dur`,{min:0,max:3000,step:50})+SEL('Easing','el',`${P}.ease`,[['ease','Ease'],['ease-in','Ease in'],['ease-out','Ease out'],['ease-in-out','Ease in-out'],['linear','Linear']]);
+ if(['page','overlay','swap','reveal','show','hide','toggle','switch'].includes(x.act))h+=SEL('Animation','el',`${P}.anim`,ANIMS)+N('Duration (ms)','el',`${P}.dur`,{min:0,max:3000,step:50})+SEL('Easing','el',`${P}.ease`,[['ease','Ease'],['ease-in','Ease in'],['ease-out','Ease out'],['ease-in-out','Ease in-out'],['linear','Linear'],['cubic-bezier(.36,0,.66,-.56)','Ease in back'],['cubic-bezier(.34,1.56,.64,1)','Ease out back'],['cubic-bezier(.68,-.6,.32,1.6)','Ease in-out back']]);
  if(x.act==='overlay'||x.act==='swap')h+=SEL('Position','el',`${P}.pos`,[['center','Center'],['top','Top'],['bottom','Bottom'],['left','Left'],['right','Right'],['top-left','Top left'],['top-right','Top right'],['bottom-left','Bottom left'],['bottom-right','Bottom right']])+CB('Dim background','el',`${P}.dim`,{rp:1})+(x.dim!==false?CL('Dim color','el',`${P}.dimColor`)+RG('Dim opacity','el',`${P}.dimOp`,{min:0,max:1,step:.01}):'')+CB('Close on outside click','el',`${P}.outside`);
  return h+`<button class="btn sm dng" style="margin-top:6px" data-a="ix-del" data-i="${i}">Remove interaction</button></div>` }
 const scrollFields=el=>SEL('On scroll','el','scr',[['scroll','Scrolls with the page'],['fixed','Fixed (stays on screen)']])+'<div class="hint">Fixed elements stay in place while the page scrolls. They measure from the top of the window and show a FIXED tag here.</div>';
+function sgPanel(el){
+ const multi=S.multi.length>1,btn=`<button class="btn" style="width:100%;margin-top:6px" data-a="sg-make">Jadikan Grup Animasi</button>`;
+ if(multi)return `<div class="hint">Elemen terpilih (${S.multi.length}) dibungkus jadi satu grup. Tiap elemen menjadi satu state, berurutan sesuai urutan layer. Default: state 1 → klik → state 2 → delay 0,01 dtk → state 3, Smart animate 600 ms.</div>`+btn;
+ if(!el.stateGroup){const ok=el.type==='group'&&!el.mask&&(el.children||[]).filter(c=>!c.hidden).length>=2;return `<div class="hint">${ok?'Anak-anak grup ini dijadikan state berurutan. Hanya state pertama tampil saat dibuka; transisi memakai urutan anak, bukan ID, jadi aman di-copy-paste.':'Butuh grup biasa (bukan mask) dengan minimal 2 anak.'}</div>`+(ok?btn:'')}
+ sgNorm(el);let h=`<div class="hint">${(el.children||[]).length} state. Anak teratas di Layers = state 1. Nama layer yang sama di tiap state dipasangkan lewat jalur nama + urutan.</div>`;
+ el.stateGroup.trans.forEach((t,i)=>{const P=`stateGroup.trans.${i}`;
+  h+=`<div class="lbl" style="margin-top:8px">State ${i+1} → State ${i+2}</div>`+SEL('Trigger','el',`${P}.tr`,[['click','On click / tap'],['delay','After delay']],{rp:1})+(t.tr==='delay'?N('Delay (s)','el',`${P}.delay`,{min:0,max:60,step:.01}):'')+SEL('Animation','el',`${P}.anim`,[['smart','Smart animate'],['dissolve','Dissolve'],['instant','Instant']])+N('Duration (ms)','el',`${P}.dur`,{min:0,max:5000,step:50})+SEL('Easing','el',`${P}.ease`,SG_EASE)});
+ return h+`<button class="btn sm dng" style="margin-top:8px" data-a="sg-clear">Hapus Grup Animasi</button>`}
 function protoElPanel(){
  const el=T('el');
  return `<div class="rhead"><b>${esc(el.name||el.type)} — interactions</b></div><div class="bpnote all"><b>Prototype mode.</b> Decide what happens when visitors use this element. Press Play to try it. Smart animate matches elements by layer name across pages.</div>`
@@ -4460,6 +4524,8 @@ function protoElPanel(){
  +(el.type==='envelope'?GRP('envelope','Envelope — edit appearance & opening',envelopePanel(el)):'' )
  +(el.type==='video'?GRP('videoPlayback','Video Playback',cinemaVideoPanel(el)):'' )
  +GRP('at22states','Component state',`${X('Content Set (for Switch Content)','el','protoSet',{ph:'Example: main-tabs'})}<label class="at22-state-label"><input type="checkbox" data-at22-hidden ${el.protoHidden?'checked':''}> Initially hidden in Preview / Publish</label><div class="hint">Default = visible; Active = initially hidden. The hidden state remains visible in the editor for wiring. For custom tabs, give content Groups/Sections the same Content Set and connect each shape with Switch Content. Drag the blue connector point to connect to a target.</div>`)
+ +((el.type==='group'||S.multi.length>1)?GRP('stategrp','Animation Group (states)',sgPanel(el)):'')
+ +(el.type==='group'?GRP('animgrp','Match by name (Switch Content)',CB('Match children by name','el','animGroup',{rp:1})+'<div class="hint">When this group is switched with Smart animate, its children are paired with the other state by layer-name path under the group. Children with the same name are paired in layer order, so duplicated names animate correctly. Give matching layers the same name in both states.</div>'):'')
  +GRP('scr','Scroll behavior',scrollFields(el))+GRP('motion','Animation Timeline',motionPanel(el),false) }
 function figmaTop(el){
  let h='';
@@ -4491,7 +4557,7 @@ function openProto(){finishEdit();drawProto()}
 function drawProto(){
  const html=siteHTML(S.doc,{hot:S.protoHot,start:S.protoStart||S.doc.start||S.doc.pages[0].id});
  const bpBtn=(v,l)=>`<button class="btn sm ${S.protoW===v?'on':''}" data-a="proto-bp" data-v="${v}">${l}</button>`;
- showModal(mbox('Play — '+S.doc.name,`<div class="row" style="margin-bottom:8px">${bpBtn('100%','Desktop')}${bpBtn('768px','Tablet')}${bpBtn('375px','Mobile')}<button class="btn sm" data-a="proto-restart">↺ Restart</button><label style="display:flex;gap:4px;align-items:center"><input type="checkbox" data-a="proto-hot" ${S.protoHot?'checked':''}> Show hotspots</label><select id="protostart" style="border:1px solid var(--line);border-radius:7px;padding:4px">${S.doc.pages.map(p=>`<option value="${p.id}" ${(S.protoStart||S.doc.start||S.doc.pages[0].id)===p.id?'selected':''}>Start: ${esc(p.name)}</option>`).join('')}</select></div>
+ showModal(mbox('Play — '+S.doc.name,`<div class="row" style="margin-bottom:8px">${bpBtn('100%','Desktop')}${bpBtn('768px','Tablet')}${bpBtn('375px','Mobile')}<button class="btn sm" data-a="proto-restart">↺ Restart</button><label style="display:flex;gap:4px;align-items:center"><input type="checkbox" data-a="proto-hot" ${S.protoHot?'checked':''}> Show hotspots</label><select id="protostart" style="border:1px solid var(--line);border-radius:7px;padding:4px">${pubPgs().map(p=>`<option value="${p.id}" ${(S.protoStart||S.doc.start||S.doc.pages[0].id)===p.id?'selected':''}>Start: ${esc(p.name)}</option>`).join('')}</select></div>
  <div style="background:#dfe3ea;border-radius:10px;padding:10px;display:flex;justify-content:center"><iframe id="prevframe" title="Prototype" allow="autoplay" style="width:${S.protoW};height:68vh;border:0;background:#fff;border-radius:6px" srcdoc="${esc(html)}"></iframe></div>`,'','lg')) }
 document.addEventListener('change',e=>{if(e.target.id==='protostart'){S.protoStart=e.target.value;drawProto()}});
 
@@ -4575,6 +4641,11 @@ Object.assign(ACT,{
   else{s.kind='overlay';s.ow=s.ow||480;s.h=Math.min(s.h,600);s.elements.forEach(e=>{e._fx=1})}
   renderCanvas();afterStruct();renderLeft()},
  mode:b=>setMode(b.dataset.v),
+ 'sg-make':()=>{let ids=selIds(),g;
+  if(ids.length>=2){const before=S.sel;makeGroup(ids,false);const f=S.sel&&S.sel.k==='el'&&findEl(S.sel.id);g=f&&f.el;if(!g||g.type!=='group'||g===(before&&findEl(before.id)||{}).el)return}
+  else{g=T('el');if(!g||g.type!=='group'||g.mask||(g.children||[]).filter(c=>!c.hidden).length<2){toast('Pilih 2+ elemen, atau satu grup biasa dengan minimal 2 anak');return}commit(discrete())}
+  g.stateGroup=sgDefault((g.children||[]).filter(c=>!c.hidden).length);g.name='Animation Group';afterEdit();toast('Grup Animasi dibuat — '+g.children.length+' state')},
+ 'sg-clear':()=>{const g=T('el');if(!g||!g.stateGroup)return;commit(discrete());delete g.stateGroup;renderRight();renderCanvas()},
  'ix-add':()=>{const el=T('el');if(!el)return;commit(discrete());(el.ix=el.ix||[]).push(newIx());renderRight();renderCanvas()},
  'ix-del':b=>{const el=T('el');if(!el)return;commit(discrete());el.ix.splice(+b.dataset.i,1);renderRight();renderCanvas()},
  'proto-play':()=>openProto(),
@@ -4796,7 +4867,7 @@ function fxFilter(f){
  if(x.hue)p.push(`hue-rotate(${x.hue}deg)`);if(x.invert)p.push(`invert(${x.invert}%)`);
  return p.join(' ') }
 function elStyle(el){
- let c=elStyleBase(el);const f=el.fx;if(!f)return c;
+ let c=elStyleBase(el)+((el.flipX||el.flipY)?`scale:${el.flipX?-1:1} ${el.flipY?-1:1};`:'');const f=el.fx;if(!f)return c;
  const ff=fxFilter(f);
  if(ff){const m=/filter:([^;]*);/.exec(c);if(m){c=c.replace(m[0],'')+`filter:${m[1]} ${ff};`}else c+=`filter:${ff};`}
  if(f.blend&&f.blend!=='normal')c+=`mix-blend-mode:${f.blend};`;
@@ -7253,9 +7324,9 @@ function openPreview(options){
  pv.className='show'+(dev?' dev':'');
  pv.innerHTML=`<div class="pvh"><b>${isProto?'▶ Prototype':'Preview'} · ${esc(S.doc.name)}</b><span class="rd">Read-only · interactions active</span>
  <div class="devs" style="display:flex;gap:6px">${[['100%','Desktop'],['768px','Tablet'],['375px','Mobile']].map(([v,l],i)=>`<button class="btn sm ${i?'':'on'}" data-a="pv-bp" data-v="${v}">${l}</button>`).join('')}</div>
- <label class="v13-page-label" title="Pilih halaman yang ditampilkan">Halaman <select id="pv13Page" aria-label="Preview halaman">${S.doc.pages.map(p=>`<option value="${esc(p.id)}" ${p.id===S.pageId?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>
+ <label class="v13-page-label" title="Pilih halaman yang ditampilkan">Halaman <select id="pv13Page" aria-label="Preview halaman">${pubPgs().map(p=>`<option value="${esc(p.id)}" ${p.id===S.pageId?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>
  <button class="btn sm" data-v13-nav="prev" aria-label="Halaman sebelumnya">◀</button><button class="btn sm" data-v13-nav="next" aria-label="Halaman berikutnya">▶</button>
- ${isProto?`<select id="pvStart" aria-label="Start page" style="max-width:130px;background:#262c39;color:#fff;border:1px solid #485264;border-radius:7px;padding:7px">${S.doc.pages.map(p=>`<option value="${p.id}" ${(S.protoStart||S.doc.start||S.doc.pages[0].id)===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select><label style="font-size:12px;white-space:nowrap"><input type="checkbox" id="pvHot" ${S.protoHot?'checked':''}> Hotspots</label>`:''}
+ ${isProto?`<select id="pvStart" aria-label="Start page" style="max-width:130px;background:#262c39;color:#fff;border:1px solid #485264;border-radius:7px;padding:7px">${pubPgs().map(p=>`<option value="${p.id}" ${(S.protoStart||S.doc.start||S.doc.pages[0].id)===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select><label style="font-size:12px;white-space:nowrap"><input type="checkbox" id="pvHot" ${S.protoHot?'checked':''}> Hotspots</label>`:''}
  <label style="font-size:12px;white-space:nowrap">?to=<input type="text" id="pvGuest" value="${esc(S._guestTest||'Charlotte')}" placeholder="Nama tamu" title="Test link guest name"></label>
  <button class="btn sm" data-a="pv-restart">↻ Restart</button><button class="btn sm" data-a="pub-dl">Download HTML</button><button class="btn sm" data-a="pv-close">✕ Close</button></div>
  <div class="pvw"><iframe id="prevframe" title="Read-only website prototype" sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads" allow="autoplay;fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
@@ -8423,7 +8494,7 @@ function cinemaPagePanel(){const c=cinemaConfig();return `<div class="hint">Desk
 function cinemaVideoPanel(el){return SEL('Playback Mode','el','playbackMode',[[ 'click','On Click / Tap' ],[ 'auto','Autoplay' ],[ 'scroll','On Scroll (Scroll-Scrub)' ],[ 'ended','On Video End → Next Page' ]],{rp:1})
  +CB('Show video controls','el','videoControls')+CB('Loop video','el','videoLoop')
  +((el.playbackMode==='scroll')?N('Scroll distance (px)','el','scrubPixels',{min:200,max:6000,step:50})+'<button class="btn sm" data-a="cinema-space">↕ Add scroll space to section</button>':'')
- +((el.playbackMode==='ended')?SEL('Next page','el','videoOnEndPage',[[ '', 'Choose page…' ],...S.doc.pages.map(p=>[p.id,p.name])]):'')
+ +((el.playbackMode==='ended')?SEL('Next page','el','videoOnEndPage',[[ '', 'Choose page…' ],...pubPgs().map(p=>[p.id,p.name])]):'')
  +'<div class="hint">MP4/WebM uploads and direct URLs work with scroll-scrub and ended. For scroll playback, make the section tall enough to scroll through.</div>'}
 function envelopePanel(el){const E=el.env||(el.env=clone(TDEF.envelope.env));return `<div class="lbl">Envelope builder · manual editing</div>
  <div class="hint">A real editable animated envelope. Adjust the colours, texture, paper, seal, text and opening behavior. No fixed video or keyframes required.</div>
@@ -8434,7 +8505,7 @@ function envelopePanel(el){const E=el.env||(el.env=clone(TDEF.envelope.env));ret
  ${SEL('Paper texture','el','env.paperAsset',[[ '', 'Solid colour / none' ],...S.assets.map(a=>[a.id,a.name])])}
  ${N('Opening time (ms)','el','env.openMs',{min:350,max:4000,step:50})}
  ${SEL('After opening','el','env.advance',[[ 'none','Leave invitation open' ],[ 'auto','Automatically go to page' ],[ 'tap','Tap again to go to page' ]],{rp:1})}
- ${E.advance!=='none'?SEL('Destination','el','env.nextPage',[[ '', 'Choose page…' ],...S.doc.pages.map(p=>[p.id,p.name])]):''}
+ ${E.advance!=='none'?SEL('Destination','el','env.nextPage',[[ '', 'Choose page…' ],...pubPgs().map(p=>[p.id,p.name])]):''}
  <div class="row"><button class="btn sm pri" data-a="envelope-test">▶ Try opening</button><button class="btn sm" data-a="envelope-reset">↻ Close</button></div>
  <div class="hint">In Prototype Play, visitors tap the seal to open the envelope. Music can start on that first tap. You can also add other interactions in Prototype mode.</div>`}
 function motionOf(el){return el.motion||(el.motion={enabled:false,start:'view',loop:false,duration:1600,frames:[{t:0,x:0,y:35,s:.88,r:0,o:0},{t:1600,x:0,y:0,s:1,r:0,o:1}]})}
