@@ -62,3 +62,16 @@ Perbaikan: Preview/Play yang dibuka dari halaman Meja Kerja menampilkan halaman 
 mengecualikan Meja Kerja. Catatan: di jendela Preview itu, halaman Meja Kerja ikut muncul di navigasi/dropdown halaman.
 Tes: `tests/play-workbench.test.py` (Play, Preview, ekspor tidak bocor, perilaku dari halaman publik tidak berubah).
 Penyebab ini adalah dugaan terkuat yang bisa direproduksi; layar putih karena sebab lain di HP belum bisa dipastikan.
+
+## Perbaikan: state harus berubah DI TEMPAT (seperti video amplop merah) + Meja Kerja lebih mudah ditemukan
+Masalah: "Jadikan Grup Animasi" hanya membungkus state; state yang tersebar di canvas tetap di posisi asalnya, jadi saat diklik
+bentuknya berpindah, bukan berubah di tempat.
+- `sgStack(g,mode)`: menumpuk semua state ke titik yang sama di Desktop, Tablet, dan Mobile (bawah-tengah, tengah, atas-kiri, bawah-kiri).
+  Ukuran grup = ukuran state terbesar. Dipakai otomatis oleh tombol bila state belum saling menimpa (default bawah-tengah);
+  state yang sudah ditumpuk manual tidak diubah. Panel punya pilihan + tombol "Tumpuk" untuk mengulang dengan mode lain.
+- Penampil state di editor: tombol "Semua / State 1..n" (hanya tampilan editor, tidak mengubah data).
+- Tombol "🛠 + Meja Kerja" di panel Pages (membuat halaman Meja Kerja baru, tidak ikut publish/ekspor/navigasi). Ikon 🛠 di tiap baris halaman
+  tetap bisa dipakai untuk menjadikan halaman yang ada sebagai Meja Kerja.
+- Tes: `tests/stack.test.py` (3 state tersebar, Desktop/Tablet/Mobile, ekspor di viewport HP 390 px dan desktop 1300 px, Body tidak berpindah).
+  BELUM dites: HP sungguhan; alignment hanya mengandalkan kotak (bounding box) tiap state, jadi state dengan bentuk tidak simetris mungkin perlu
+  memilih mode tumpuk lain.

@@ -2702,7 +2702,7 @@ function tabTemplates(){
  <button class="btn" style="width:100%;margin-top:8px" data-a="tpl-save">Save current page as template</button>` }
 function tabPages(){
  return `<h3>Pages</h3>`+S.doc.pages.map(p=>`<div class="pagerow ${p.id===S.pageId?'on':''}" data-page-row="${esc(p.id)}"><button type="button" class="page-go" data-a="page-go" data-id="${esc(p.id)}" aria-current="${p.id===S.pageId?'page':'false'}"><b>${esc(p.name)}</b> <small class="hint">#/${esc(p.slug)}</small>${p.workbench?'<span class="wbtag">Meja Kerja</span>':''}</button><button type="button" class="ib${p.workbench?' wbon':''}" data-a="page-wb" data-id="${esc(p.id)}" title="Meja Kerja: tidak ikut publish/ekspor">🛠</button><button type="button" class="ib" data-a="page-dup" data-id="${esc(p.id)}" title="Duplicate">⧉</button><button type="button" class="ib" data-a="page-del" data-id="${esc(p.id)}" title="Delete" ${S.doc.pages.length<2?'disabled':''}>✕</button></div>`).join('')
- +`<button class="btn" style="width:100%" data-a="page-add">Add page</button><p class="hint" style="margin-top:10px">Select a page, then click an empty spot on the canvas to edit its name, URL slug and background in the right panel. Pages are linked from buttons and the navigation bar.</p>` }
+ +`<button class="btn" style="width:100%" data-a="page-add">Add page</button><button class="btn" style="width:100%;margin-top:6px" data-a="wb-add">🛠 + Meja Kerja (halaman uji animasi)</button><p class="hint" style="margin-top:10px">Ikon 🛠 di tiap halaman = jadikan halaman itu Meja Kerja (tidak ikut publish/ekspor). Select a page, then click an empty spot on the canvas to edit its name, URL slug and background in the right panel. Pages are linked from buttons and the navigation bar.</p>` }
 function tabNav(){
  const n=curNav(),pg=curPage();
  return `<h3>Navigation</h3>
@@ -3706,11 +3706,23 @@ function groupHTML(g,ctx){
   const m=g.children[g.children.length-1],clip=maskClip(g);
   return `<div class="gcl" style="clip-path:${clip};-webkit-clip-path:${clip}">${g.children.slice(0,-1).map(c=>elHTML(c,ctx,g)).join('')}</div>`
    +(ctx.edit&&S.inGroup===g.id?`<div style="position:absolute;left:${m.x/g.gw*100}%;top:${m.y/g.gh*100}%;width:${m.w/g.gw*100}%;height:${m.h/g.gh*100}%;outline:1px dashed #ff3d7f;pointer-events:none"></div>`:'')}
- return `<div class="gcl">${g.children.map(c=>{if(g.stateGroup&&!ctx.edit)SGS_KIDS.add(c);else SGS_KIDS.delete(c);return elHTML(c,ctx,g)}).join('')}</div>` }
+ return `<div class="gcl">${g.children.map((c,k)=>{if(g.stateGroup&&!ctx.edit)SGS_KIDS.add(c);else SGS_KIDS.delete(c);const h=elHTML(c,ctx,g);return ctx.edit&&g.stateGroup&&S.sgView&&S.sgView[g.id]!=null&&S.sgView[g.id]!==k?`<div hidden style="display:none">${h}</div>`:h}).join('')}</div>` }
 /* STAGE 5 / L2b: Grup Animasi (State Group). Anak grup = state berurutan; transisi i = dari state i ke i+1. Tanpa ID elemen. */
 const SG_EASE=[['ease','Ease'],['linear','Linear'],['ease-in','Ease in'],['ease-out','Ease out'],['ease-in-out','Ease in-out'],['cubic-bezier(.34,1.56,.64,1)','Ease out back']];
 function sgDefault(n){const a=[];for(let i=0;i<Math.max(0,n-1);i++)a.push({tr:i===0?'click':'delay',delay:i===0?0:.01,anim:'smart',dur:600,ease:'ease'});return{trans:a}}
 function sgNorm(el){const n=(el.children||[]).filter(c=>!c.hidden).length,d=sgDefault(n);el.stateGroup=el.stateGroup||{trans:[]};const t=el.stateGroup.trans=el.stateGroup.trans||[];for(let i=0;i<d.trans.length;i++)t[i]=Object.assign({},d.trans[i],t[i]||{});t.length=d.trans.length;return el.stateGroup}
+/* Tumpuk state di posisi yang sama (seperti varian komponen Figma). mode: tl | c | bl | bc | keep. Berlaku di Desktop/Tablet/Mobile. */
+function sgStack(g,mode){
+ const st=(g.children||[]).filter(c=>!c.hidden);if(st.length<2||mode==='keep')return;
+ const G=(e,bp,k)=>bp==='d'?e[k]:((e.bp&&e.bp[bp]&&e.bp[bp][k]!=null)?e.bp[bp][k]:e[k]);
+ const Sx=(e,bp,k,v)=>{if(bp==='d')e[k]=v;else{e.bp=e.bp||{};e.bp[bp]=e.bp[bp]||{};e.bp[bp][k]=v}};
+ for(const bp of ['d','t','m']){
+  const B=st.map(e=>({e,w:+G(e,bp,'w')||0,h:+G(e,bp,'h')||0})),W=Math.max(...B.map(b=>b.w)),H=Math.max(...B.map(b=>b.h));
+  B.forEach(b=>{Sx(b.e,bp,'x',mode==='tl'||mode==='bl'?0:(W-b.w)/2);Sx(b.e,bp,'y',mode==='tl'?0:mode==='c'?(H-b.h)/2:H-b.h)});
+  if(bp==='d'){g.w=g.gw=W;g.h=g.gh=H}else if(g.bp&&g.bp[bp]){g.bp[bp].w=W;g.bp[bp].h=H}
+  if(g._groupBase)g._groupBase[bp]={w:W,h:H}}}
+function sgOverlapped(g){const st=(g.children||[]).filter(c=>!c.hidden);if(st.length<2)return true;const a=st[0];
+ return st.every(b=>{const ox=Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x),oy=Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y);return ox>0&&oy>0&&ox*oy>=.5*Math.min(a.w*a.h,b.w*b.h)})}
 function sgOut(el){const tmp=JSON.parse(JSON.stringify({stateGroup:el.stateGroup,children:el.children||[]}));return sgNorm(tmp).trans.map(t=>({tr:t.tr==='delay'?'delay':'click',delay:Math.max(0,+t.delay||0),anim:['smart','dissolve','instant'].includes(t.anim)?t.anim:'smart',dur:Math.max(0,+t.dur||0),ease:String(t.ease||'ease')}))}
 const slugName=el=>String(el.name||el.type).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'el';
 function ixOut(el){
@@ -4517,7 +4529,10 @@ function sgPanel(el){
  const multi=S.multi.length>1,btn=`<button class="btn" style="width:100%;margin-top:6px" data-a="sg-make">Jadikan Grup Animasi</button>`;
  if(multi)return `<div class="hint">Elemen terpilih (${S.multi.length}) dibungkus jadi satu grup. Tiap elemen menjadi satu state, berurutan sesuai urutan layer. Default: state 1 → klik → state 2 → delay 0,01 dtk → state 3, Smart animate 600 ms.</div>`+btn;
  if(!el.stateGroup){const ok=el.type==='group'&&!el.mask&&(el.children||[]).filter(c=>!c.hidden).length>=2;return `<div class="hint">${ok?'Anak-anak grup ini dijadikan state berurutan. Hanya state pertama tampil saat dibuka; transisi memakai urutan anak, bukan ID, jadi aman di-copy-paste.':'Butuh grup biasa (bukan mask) dengan minimal 2 anak.'}</div>`+(ok?btn:'')}
- sgNorm(el);let h=`<div class="hint">${(el.children||[]).length} state. Anak teratas di Layers = state 1. Nama layer yang sama di tiap state dipasangkan lewat jalur nama + urutan.</div>`;
+ sgNorm(el);const nS=(el.children||[]).length,cv=S.sgView&&S.sgView[el.id];
+ let h=`<div class="hint">${nS} state. Anak teratas di Layers = state 1. Nama layer yang sama di tiap state dipasangkan lewat jalur nama + urutan.</div>`
+  +`<div class="lbl" style="margin-top:6px">Lihat di editor</div><div class="row" style="flex-wrap:wrap;gap:4px"><button class="btn sm ${cv==null?'on':''}" data-a="sg-view" data-i="">Semua</button>${Array.from({length:nS},(_,i)=>`<button class="btn sm ${cv===i?'on':''}" data-a="sg-view" data-i="${i}">State ${i+1}</button>`).join('')}</div>`
+  +`<div class="lbl" style="margin-top:8px">Tumpuk state di tempat yang sama</div><div class="row" style="gap:4px"><select id="sgalign" style="flex:1"><option value="bc">Bawah-tengah</option><option value="c">Tengah</option><option value="tl">Atas-kiri</option><option value="bl">Bawah-kiri</option></select><button class="btn sm" data-a="sg-stack">Tumpuk</button></div><div class="hint">Semua state dijajarkan ke titik yang sama (di Desktop, Tablet, Mobile) supaya saat diputar hanya satu objek yang berubah di tempat. Coba pilihan lain bila posisinya belum pas.</div>`;
  el.stateGroup.trans.forEach((t,i)=>{const P=`stateGroup.trans.${i}`;
   h+=`<div class="lbl" style="margin-top:8px">State ${i+1} → State ${i+2}</div>`+SEL('Trigger','el',`${P}.tr`,[['click','On click / tap'],['delay','After delay']],{rp:1})+(t.tr==='delay'?N('Delay (s)','el',`${P}.delay`,{min:0,max:60,step:.01}):'')+SEL('Animation','el',`${P}.anim`,[['smart','Smart animate'],['dissolve','Dissolve'],['instant','Instant']])+N('Duration (ms)','el',`${P}.dur`,{min:0,max:5000,step:50})+SEL('Easing','el',`${P}.ease`,SG_EASE)});
  return h+`<button class="btn sm dng" style="margin-top:8px" data-a="sg-clear">Hapus Grup Animasi</button>`}
@@ -4648,7 +4663,13 @@ Object.assign(ACT,{
  'sg-make':()=>{let ids=selIds(),g;
   if(ids.length>=2){const before=S.sel;makeGroup(ids,false);const f=S.sel&&S.sel.k==='el'&&findEl(S.sel.id);g=f&&f.el;if(!g||g.type!=='group'||g===(before&&findEl(before.id)||{}).el)return}
   else{g=T('el');if(!g||g.type!=='group'||g.mask||(g.children||[]).filter(c=>!c.hidden).length<2){toast('Pilih 2+ elemen, atau satu grup biasa dengan minimal 2 anak');return}commit(discrete())}
-  g.stateGroup=sgDefault((g.children||[]).filter(c=>!c.hidden).length);g.name='Animation Group';afterEdit();toast('Grup Animasi dibuat — '+g.children.length+' state')},
+  g.stateGroup=sgDefault((g.children||[]).filter(c=>!c.hidden).length);g.name='Animation Group';
+  let msg='Grup Animasi dibuat — '+g.children.length+' state';
+  if(ids.length>=2&&!sgOverlapped(g)){sgStack(g,'bc');msg+='. State ditumpuk di tempat yang sama (bawah-tengah); ubah di panel bila perlu'}
+  afterEdit();toast(msg)},
+ 'sg-view':b=>{const g=T('el');if(!g||!g.stateGroup)return;S.sgView=S.sgView||{};S.sgView[g.id]=b.dataset.i===''?null:+b.dataset.i;renderCanvas();renderRight()},
+ 'sg-stack':()=>{const g=T('el');if(!g||!g.stateGroup)return;const m=($('#sgalign')||{}).value||'bc';commit(discrete());sgStack(g,m);afterEdit();toast('State ditumpuk di tempat yang sama')},
+ 'wb-add':()=>{commit(discrete());const n=S.doc.pages.length+1,p={id:uid('p'),name:'Meja Kerja',slug:'meja-kerja-'+n,title:'Meja Kerja',bg:defBg(),navOwn:false,nav:null,sections:[SECT.blank()],workbench:true};S.doc.pages.push(p);S.pageId=p.id;S.sel=null;renderAll();toast('Halaman Meja Kerja dibuat. Tidak ikut publish, ekspor, dan navigasi.')},
  'sg-clear':()=>{const g=T('el');if(!g||!g.stateGroup)return;commit(discrete());delete g.stateGroup;renderRight();renderCanvas()},
  'ix-add':()=>{const el=T('el');if(!el)return;commit(discrete());(el.ix=el.ix||[]).push(newIx());renderRight();renderCanvas()},
  'ix-del':b=>{const el=T('el');if(!el)return;commit(discrete());el.ix.splice(+b.dataset.i,1);renderRight();renderCanvas()},
