@@ -20,9 +20,17 @@ with WebGPU or WebGL2 and WebAssembly SIMD is required (any current browser; Saf
 
 ## Fonts
 
-The web build draws text with the fonts it was built with. In browsers with Local Font Access
-(Chromium: Chrome, Edge, Opera), the font menu's "Use fonts installed on this computer…" adds the
-computer's fonts after the browser asks for permission; each is read only when text uses it.
+The web build draws text with the fonts it was built with. For release-quality web builds, set
+`CRAFT_FONTS_DIR` to a pinned checkout of `storytold/craft-fonts` and set
+`CRAFT_FONTS_REQUIRED=1`; the build script then verifies the required web faces before compiling.
+The selected font bytes are embedded in the WebAssembly binary at compile time (`include_bytes!`)
+and are **not** emitted as separate `.ttf`/`.otf` files in `dist/web`. When the WASM file is copied
+to a nested hosting path such as `/figcraft/`, it carries the embedded fonts with it. Ship the
+corresponding OFL licence texts alongside the static app.
+
+In browsers with Local Font Access (Chromium: Chrome, Edge, Opera), the font menu's "Use fonts
+installed on this computer…" adds the computer's fonts after the browser asks for permission; each
+is read only when text uses it.
 
 ## Live sessions
 

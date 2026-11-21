@@ -25,6 +25,7 @@
     loading: null,
     error: null,
     status: null,
+    fontWarning: null,
     loadingTimer: null,
     saveSerial: Promise.resolve(),
     skipAutoOpen: false
@@ -117,6 +118,65 @@
     if (state.error) state.error.hidden = true;
   }
 
+  function showFontWarning(message) {
+    if (!state.fontWarning) return;
+    state.fontWarning.textContent = String(message || 'Font FigCraft tidak dapat diverifikasi.');
+    state.fontWarning.hidden = false;
+  }
+
+  function hideFontWarning() {
+    if (state.fontWarning) state.fontWarning.hidden = true;
+  }
+
+  // FigCraft embeds its web fonts inside the WASM binary at build time; there are no
+  // standalone .ttf/.woff requests. This diagnostic checks the generated build manifest
+  // and the exact WASM asset URL so a stale/missing deployment is visible in Moza.
+  async function diagnoseFontBundle() {
+    const base = new URL(APP_PATH, document.baseURI);
+    const manifestUrl = new URL('figcraft-fonts.json', base);
+    try {
+      const response = await fetch(manifestUrl.href, { cache: 'no-store', credentials: 'same-origin' });
+      if (!response.ok) {
+        showFontWarning(`Peringatan font FigCraft: manifest font tidak ditemukan (HTTP ${response.status}). Build yang ter-deploy mungkin belum menyertakan font ke dalam WebAssembly.`);
+        return false;
+      }
+      const manifest = await response.json();
+      const requiredFaces = [
+        'Inter Regular',
+        'Inter SemiBold',
+        'Noto Sans Georgian Regular',
+        'Noto Sans Arabic Regular'
+      ];
+      if (!manifest || manifest.schemaVersion !== 1 || manifest.embedded !== true ||
+          manifest.fontPayload !== 'embedded-in-wasm' || !Array.isArray(manifest.requiredFaces) ||
+          requiredFaces.some(face => !manifest.requiredFaces.includes(face))) {
+        showFontWarning('Peringatan font FigCraft: manifest tidak valid atau font wajib belum tertanam. Jalankan ulang workflow build FigCraft.');
+        return false;
+      }
+      const wasmAsset = String(manifest.wasmAsset || '');
+      if (!/^[a-z0-9._-]+_bg\.wasm$/i.test(wasmAsset)) {
+        showFontWarning('Peringatan font FigCraft: nama bundle WebAssembly pada manifest tidak valid.');
+        return false;
+      }
+      const wasmUrl = new URL(wasmAsset, base);
+      const wasmResponse = await fetch(wasmUrl.href, { method: 'HEAD', cache: 'no-store', credentials: 'same-origin' });
+      if (!wasmResponse.ok) {
+        showFontWarning(`Peringatan font FigCraft: bundle WebAssembly yang memuat font gagal diakses (HTTP ${wasmResponse.status}). Periksa folder /figcraft/ dan hasil deployment.`);
+        return false;
+      }
+      const contentType = String(wasmResponse.headers.get('content-type') || '').toLowerCase();
+      if (!contentType.includes('application/wasm')) {
+        showFontWarning(`Peringatan font FigCraft: MIME bundle WASM tidak sesuai (${contentType || 'tidak diketahui'}); seharusnya application/wasm.`);
+        return false;
+      }
+      hideFontWarning();
+      return true;
+    } catch (error) {
+      showFontWarning(`Peringatan font FigCraft: pemeriksaan bundle gagal (${error && error.message ? error.message : error}).`);
+      return false;
+    }
+  }
+
   function updateDirty(dirty) {
     state.dirty = !!dirty;
     if (state.dirty) {
@@ -142,6 +202,7 @@
         </div>
       </header>
       <div id="mz-fc-stage">
+        <div id="mz-fc-font-warning" hidden role="alert" aria-live="polite"></div>
         <iframe id="mz-fc-frame" title="FigCraft Design Editor" allow="fullscreen; clipboard-read; clipboard-write" allowfullscreen loading="lazy" referrerpolicy="same-origin" tabindex="-1"></iframe>
         <div id="mz-fc-loading" role="status" aria-live="polite">
           <div id="mz-fc-spinner" aria-hidden="true"></div>
@@ -162,6 +223,7 @@
     state.loading = shell.querySelector('#mz-fc-loading');
     state.error = shell.querySelector('#mz-fc-error');
     state.status = shell.querySelector('#mz-fc-status');
+    state.fontWarning = shell.querySelector('#mz-fc-font-warning');
 
     shell.addEventListener('click', event => {
       const button = event.target.closest('[data-mz-fc-action]');
@@ -284,6 +346,7 @@
         retry && retry.forEach(button => { button.hidden = false; });
       }
     }, 180000);
+    void diagnoseFontBundle();
     state.frame.src = buildFrameUrl();
   }
 

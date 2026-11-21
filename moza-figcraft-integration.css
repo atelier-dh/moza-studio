@@ -59,6 +59,25 @@
 #mz-fc-shell button.mz-fc-primary { background: #3a5bf0; border-color: #3a5bf0; color: #fff; }
 #mz-fc-shell button.mz-fc-primary:hover { background: #2c49d4; }
 #mz-fc-stage { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
+#mz-fc-font-warning {
+  position: absolute;
+  z-index: 4;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 9px 12px;
+  border: 1px solid #e9c46a;
+  border-radius: 9px;
+  background: #fff8e6;
+  color: #805b12;
+  box-shadow: 0 4px 16px #1720331a;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+#mz-fc-font-warning[hidden] { display: none !important; }
 #mz-fc-frame {
   display: block;
   flex: 1;

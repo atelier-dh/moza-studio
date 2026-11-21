@@ -8,5 +8,8 @@ filehash = true
 [serve]
 addresses = ["127.0.0.1"]
 port = 8767
+
 [tools]
+# Pin a Binaryen release that supports the WebAssembly feature flags
+# declared in apps/figcraft-web/index.html. Avoid the older Ubuntu apt wasm-opt.
 wasm_opt = "version_131"
