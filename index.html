@@ -4076,10 +4076,14 @@ function siteRuntime(){
 }
 
 /* STAGE 5 / L1: Meja Kerja = halaman dengan flag page.workbench. Tidak ikut publish/ekspor/navigasi. */
-function wbPages(doc){const a=(doc&&doc.pages)||[],b=a.filter(p=>!p.workbench);return b.length?b:a}
+let WB_INC=null; /* Play/Preview dari halaman Meja Kerja: halaman itu ikut dirender; publish/ekspor tidak pernah mengisi ini */
+function wbPages(doc){const a=(doc&&doc.pages)||[],b=a.filter(p=>!p.workbench||p.id===WB_INC);return b.length?b:a}
 function pubPgs(){return wbPages(S.doc)}
+/* Play/Preview: halaman Meja Kerja yang sedang dibuka ikut bisa dipilih/ditampilkan (hanya untuk preview, bukan publish) */
+function pvWB(){return (S.doc.pages||[]).find(p=>p.id===S.pageId&&p.workbench)||null}
+function pvPgs(){const a=wbPages(S.doc),w=pvWB();return w&&!a.includes(w)?a.concat(w):a}
 function siteHTML(doc,opt={}){
- const keepStart=doc.start;if(opt.start)doc.start=opt.start;
+ const keepStart=doc.start,keepWB=WB_INC;if(opt.start)doc.start=opt.start;WB_INC=(opt.start&&(doc.pages||[]).some(p=>p.id===opt.start&&p.workbench))?opt.start:null;
  try{
   const names=usedFonts(doc),built=GOOGLE.filter(g=>names.includes(g[0]));
   let rules='';for(const p of wbPages(doc))rules+=pageRules(p,false);
@@ -4111,7 +4115,7 @@ try{(${cinemaRuntime.toString()})()}catch(e){console.error('[Atelier] Cinema run
 try{(${atelierPublicExtras.toString()})()}catch(e){console.error('[Atelier] Extra runtime failed',e)}
 try{(${a320CountdownRuntime.toString()})()}catch(e){console.error('[Atelier] Countdown runtime failed',e)}<\/script>
 </body></html>`
- }finally{doc.start=keepStart}
+ }finally{doc.start=keepStart;WB_INC=keepWB}
 }
 /* =====================================================================
    FIGMA-STYLE TOOLS — move, scale, pen, group, mask, multi-select, prototype
@@ -7324,9 +7328,9 @@ function openPreview(options){
  pv.className='show'+(dev?' dev':'');
  pv.innerHTML=`<div class="pvh"><b>${isProto?'▶ Prototype':'Preview'} · ${esc(S.doc.name)}</b><span class="rd">Read-only · interactions active</span>
  <div class="devs" style="display:flex;gap:6px">${[['100%','Desktop'],['768px','Tablet'],['375px','Mobile']].map(([v,l],i)=>`<button class="btn sm ${i?'':'on'}" data-a="pv-bp" data-v="${v}">${l}</button>`).join('')}</div>
- <label class="v13-page-label" title="Pilih halaman yang ditampilkan">Halaman <select id="pv13Page" aria-label="Preview halaman">${pubPgs().map(p=>`<option value="${esc(p.id)}" ${p.id===S.pageId?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>
+ <label class="v13-page-label" title="Pilih halaman yang ditampilkan">Halaman <select id="pv13Page" aria-label="Preview halaman">${pvPgs().map(p=>`<option value="${esc(p.id)}" ${p.id===S.pageId?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>
  <button class="btn sm" data-v13-nav="prev" aria-label="Halaman sebelumnya">◀</button><button class="btn sm" data-v13-nav="next" aria-label="Halaman berikutnya">▶</button>
- ${isProto?`<select id="pvStart" aria-label="Start page" style="max-width:130px;background:#262c39;color:#fff;border:1px solid #485264;border-radius:7px;padding:7px">${pubPgs().map(p=>`<option value="${p.id}" ${(S.protoStart||S.doc.start||S.doc.pages[0].id)===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select><label style="font-size:12px;white-space:nowrap"><input type="checkbox" id="pvHot" ${S.protoHot?'checked':''}> Hotspots</label>`:''}
+ ${isProto?`<select id="pvStart" aria-label="Start page" style="max-width:130px;background:#262c39;color:#fff;border:1px solid #485264;border-radius:7px;padding:7px">${pvPgs().map(p=>`<option value="${p.id}" ${((pvWB()&&pvWB().id)||S.protoStart||S.doc.start||S.doc.pages[0].id)===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select><label style="font-size:12px;white-space:nowrap"><input type="checkbox" id="pvHot" ${S.protoHot?'checked':''}> Hotspots</label>`:''}
  <label style="font-size:12px;white-space:nowrap">?to=<input type="text" id="pvGuest" value="${esc(S._guestTest||'Charlotte')}" placeholder="Nama tamu" title="Test link guest name"></label>
  <button class="btn sm" data-a="pv-restart">↻ Restart</button><button class="btn sm" data-a="pub-dl">Download HTML</button><button class="btn sm" data-a="pv-close">✕ Close</button></div>
  <div class="pvw"><iframe id="prevframe" title="Read-only website prototype" sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads" allow="autoplay;fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;

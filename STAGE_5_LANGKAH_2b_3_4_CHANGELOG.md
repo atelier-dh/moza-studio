@@ -54,3 +54,11 @@ copy-paste/duplikat aman.
 Aturan pencocokan layer (nama jalur dari akar, nama kembar dipasangkan berurutan) mengikuti `name_path` dan `match_layers` di
 FigCraft `crates/ui-egui/src/present/transition.rs`. Per NOTICE/ATTRIBUTION.md, FigCraft berlisensi MIT atau Apache-2.0
 (pilih salah satu; dipilih Apache-2.0 untuk atribusi ini). Tidak ada kode Rust yang disalin; hanya algoritmanya yang diimplementasikan ulang di JS.
+
+## Perbaikan tambahan: Play/Preview dari halaman Meja Kerja tampil putih
+Penyebab: di Langkah 1 saya ikut mengecualikan Meja Kerja dari Preview/Play (spesifikasi hanya menyebut publish, ekspor, navigasi).
+Akibatnya menekan Play/Preview saat berada di halaman Meja Kerja menampilkan halaman publik lain, yang putih jika masih kosong.
+Perbaikan: Preview/Play yang dibuka dari halaman Meja Kerja menampilkan halaman itu (`pvPgs`, `WB_INC` di `siteHTML`). Publish dan ekspor tetap
+mengecualikan Meja Kerja. Catatan: di jendela Preview itu, halaman Meja Kerja ikut muncul di navigasi/dropdown halaman.
+Tes: `tests/play-workbench.test.py` (Play, Preview, ekspor tidak bocor, perilaku dari halaman publik tidak berubah).
+Penyebab ini adalah dugaan terkuat yang bisa direproduksi; layar putih karena sebab lain di HP belum bisa dipastikan.
