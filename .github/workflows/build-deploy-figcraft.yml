@@ -1,71 +1,3 @@
-name: Build and deploy Moza Studio + FigCraft
-
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: github-pages
-  cancel-in-progress: true
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Moza Studio and FigCraft source
-        uses: actions/checkout@v4
-
-<<<<<<< HEAD
-      # FigCraft's web renderer has no access to operating-system font folders.
-      # Match the pinned craft-fonts revision used by the upstream FigCraft release workflow.
-      - name: Checkout pinned FigCraft font assets
-        uses: actions/checkout@v4
-        with:
-          repository: storytold/craft-fonts
-          ref: 37827adc41fd165f9a9234ac40f94dbad353aa69
-          path: figcraft-source/craft-fonts
-          fetch-depth: 1
-          persist-credentials: false
-
-=======
->>>>>>> e4967cabb1eaa2b81743a984815e7218e852e8b4
-      - name: Install Rust and WebAssembly target
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-
-      - name: Cache Rust build files
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            figcraft-source -> figcraft-source/target
-
-<<<<<<< HEAD
-      - name: Install pinned Trunk
-        run: |
-          cargo install trunk --version 0.22.1 --locked
-          trunk --version
-
-      - name: Build FigCraft WebAssembly application
-        working-directory: figcraft-source/apps/figcraft-web
-        env:
-          CRAFT_FONTS_DIR: ${{ github.workspace }}/figcraft-source/craft-fonts
-          CRAFT_FONTS_REQUIRED: "1"
-        run: |
-          set -euo pipefail
-          test -f "$CRAFT_FONTS_DIR/fonts/manifest.txt"
-          test -f "$CRAFT_FONTS_DIR/fonts/latin-manifest.txt"
-          trunk build --release
-
-      - name: Verify embedded fonts and write diagnostic manifest
-        working-directory: figcraft-source
-        env:
           CRAFT_FONTS_DIR: ${{ github.workspace }}/figcraft-source/craft-fonts
           CRAFT_FONTS_REF: 37827adc41fd165f9a9234ac40f94dbad353aa69
         run: |
@@ -135,17 +67,6 @@ jobs:
           echo "FigCraft embedded font manifest:"
           cat "$DIST/figcraft-fonts.json"
           ls -lh "$DIST/$WASM_FILE"
-=======
-      - name: Install wasm-opt and Trunk
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes binaryen
-          cargo install trunk --locked
-
-      - name: Build FigCraft WebAssembly application
-        working-directory: figcraft-source/apps/figcraft-web
-        run: trunk build --release
->>>>>>> e4967cabb1eaa2b81743a984815e7218e852e8b4
 
       - name: Assemble same-origin static website
         shell: bash
@@ -154,11 +75,8 @@ jobs:
           SITE="$RUNNER_TEMP/moza-site"
           FIGCRAFT_DIST="figcraft-source/dist/web"
           test -f "$FIGCRAFT_DIST/index.html"
-<<<<<<< HEAD
           test -f "$FIGCRAFT_DIST/figcraft-fonts.json"
           test -d "$FIGCRAFT_DIST/font-licenses"
-=======
->>>>>>> e4967cabb1eaa2b81743a984815e7218e852e8b4
           compgen -G "$FIGCRAFT_DIST/*.wasm" >/dev/null
 
           rm -rf "$SITE"
@@ -179,11 +97,8 @@ jobs:
           cp figcraft-source/packaging/web/_headers "$SITE/figcraft/_headers"
           cp figcraft-source/packaging/web/.htaccess "$SITE/figcraft/.htaccess"
           cp figcraft-source/packaging/web/README.md "$SITE/figcraft/HOSTING.md"
-<<<<<<< HEAD
           cp figcraft-source/NOTICE "$SITE/figcraft/NOTICE"
           cp figcraft-source/ATTRIBUTION.md "$SITE/figcraft/ATTRIBUTION.md"
-=======
->>>>>>> e4967cabb1eaa2b81743a984815e7218e852e8b4
           touch "$SITE/.nojekyll"
 
           echo "Static site assembled at $SITE"
