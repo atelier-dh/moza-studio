@@ -6,6 +6,8 @@
   'use strict';
 
   const APP_ORIGIN = window.location.origin;
+  // Resolve FigCraft relative to the deployed Moza project path (e.g. /moza-studio/figcraft/),
+  // not relative to document.baseURI, which may be changed by a host <base> element.
   const APP_PATH = 'figcraft/';
   const DOC_EXTENSIONS = new Set(['figcraft', 'json']);
   const MAX_NAME_LENGTH = 255;
@@ -129,39 +131,96 @@
   }
 
   // FigCraft embeds its web fonts inside the WASM binary at build time; there are no
-  // standalone .ttf/.woff requests. This diagnostic checks the generated build manifest
-  // and the exact WASM asset URL so a stale/missing deployment is visible in Moza.
+  // standalone .ttf/.woff requests. Inspect the actual same-origin iframe document and
+  // its loaded WASM resource. The JSON manifest is only a compatibility fallback, not
+  // the font payload itself.
   async function diagnoseFontBundle() {
-    const base = new URL(APP_PATH, document.baseURI);
-    const manifestUrl = new URL('figcraft-fonts.json', base);
+    if (!state.frame) return false;
+    let frameUrl;
     try {
-      const response = await fetch(manifestUrl.href, { cache: 'no-store', credentials: 'same-origin' });
-      if (!response.ok) {
-        showFontWarning(`Peringatan font FigCraft: manifest font tidak ditemukan (HTTP ${response.status}). Build yang ter-deploy mungkin belum menyertakan font ke dalam WebAssembly.`);
-        return false;
-      }
-      const manifest = await response.json();
-      const requiredFaces = [
-        'Inter Regular',
-        'Inter SemiBold',
-        'Noto Sans Georgian Regular',
-        'Noto Sans Arabic Regular'
-      ];
-      if (!manifest || manifest.schemaVersion !== 1 || manifest.embedded !== true ||
-          manifest.fontPayload !== 'embedded-in-wasm' || !Array.isArray(manifest.requiredFaces) ||
-          requiredFaces.some(face => !manifest.requiredFaces.includes(face))) {
-        showFontWarning('Peringatan font FigCraft: manifest tidak valid atau font wajib belum tertanam. Jalankan ulang workflow build FigCraft.');
-        return false;
-      }
-      const wasmAsset = String(manifest.wasmAsset || '');
-      if (!/^[a-z0-9._-]+_bg\.wasm$/i.test(wasmAsset)) {
-        showFontWarning('Peringatan font FigCraft: nama bundle WebAssembly pada manifest tidak valid.');
-        return false;
-      }
-      const wasmUrl = new URL(wasmAsset, base);
+      frameUrl = new URL(state.frame.src || buildFrameUrl(), window.location.href);
+    } catch (error) {
+      showFontWarning(`Peringatan font FigCraft: URL editor tidak valid (${error.message || error}).`);
+      return false;
+    }
+    if (frameUrl.origin !== APP_ORIGIN) {
+      showFontWarning('Peringatan font FigCraft: editor tidak berada pada origin yang sama dengan Moza.');
+      return false;
+    }
+    const base = new URL('.', frameUrl);
+    let frameDocument;
+    let frameWindow;
+    try {
+      frameDocument = state.frame.contentDocument;
+      frameWindow = state.frame.contentWindow;
+    } catch (_) {
+      showFontWarning('Peringatan font FigCraft: halaman editor tidak dapat diperiksa. Pastikan FigCraft di-deploy pada origin yang sama.');
+      return false;
+    }
+    if (!frameDocument || !frameWindow) {
+      showFontWarning('Peringatan font FigCraft: dokumen iframe belum tersedia.');
+      return false;
+    }
+
+    const requiredFaces = [
+      'Inter Regular',
+      'Inter SemiBold',
+      'Noto Sans Georgian Regular',
+      'Noto Sans Arabic Regular'
+    ];
+    let declaredFaces = [];
+    const marker = frameDocument.querySelector('meta[name="figcraft-embedded-fonts"]');
+    if (marker) {
+      declaredFaces = marker.content.split(',').map(value => value.trim()).filter(Boolean);
+    } else {
+      // Compatibility fallback for an already-built deployment that has the JSON manifest
+      // but not the HTML marker introduced by this patch.
+      try {
+        const manifestUrl = new URL('figcraft-fonts.json', base);
+        const response = await fetch(manifestUrl.href, { cache: 'no-store', credentials: 'same-origin' });
+        if (response.ok) {
+          const manifest = await response.json();
+          if (manifest && manifest.embedded === true && manifest.fontPayload === 'embedded-in-wasm' && Array.isArray(manifest.requiredFaces)) {
+            declaredFaces = manifest.requiredFaces;
+          }
+        }
+      } catch (_) { /* The actual WASM check below provides the actionable asset error. */ }
+    }
+
+    if (requiredFaces.some(face => !declaredFaces.includes(face))) {
+      showFontWarning('Peringatan font FigCraft: build yang dibuka belum mengonfirmasi font wajib tertanam (Inter dan Noto Sans). Jalankan workflow build font terbaru.');
+      return false;
+    }
+
+    let wasmUrl = null;
+    try {
+      const resources = frameWindow.performance.getEntriesByType('resource');
+      const wasmEntry = resources.find(entry => /_bg\.wasm(?:[?#]|$)/i.test(entry.name));
+      if (wasmEntry) wasmUrl = new URL(wasmEntry.name, base);
+    } catch (_) { /* Fall through to the build manifest. */ }
+
+    if (!wasmUrl) {
+      try {
+        const manifestUrl = new URL('figcraft-fonts.json', base);
+        const response = await fetch(manifestUrl.href, { cache: 'no-store', credentials: 'same-origin' });
+        if (response.ok) {
+          const manifest = await response.json();
+          if (manifest && typeof manifest.wasmAsset === 'string' && /^[a-z0-9._-]+_bg\.wasm$/i.test(manifest.wasmAsset)) {
+            wasmUrl = new URL(manifest.wasmAsset, base);
+          }
+        }
+      } catch (_) { /* Report the missing WASM below. */ }
+    }
+
+    if (!wasmUrl || wasmUrl.origin !== APP_ORIGIN) {
+      showFontWarning('Peringatan font FigCraft: file WebAssembly yang memuat font tidak ditemukan pada folder /figcraft/. Periksa hasil build dan deployment.');
+      return false;
+    }
+
+    try {
       const wasmResponse = await fetch(wasmUrl.href, { method: 'HEAD', cache: 'no-store', credentials: 'same-origin' });
       if (!wasmResponse.ok) {
-        showFontWarning(`Peringatan font FigCraft: bundle WebAssembly yang memuat font gagal diakses (HTTP ${wasmResponse.status}). Periksa folder /figcraft/ dan hasil deployment.`);
+        showFontWarning(`Peringatan font FigCraft: bundle WebAssembly yang memuat font gagal dimuat (HTTP ${wasmResponse.status}). Periksa folder /figcraft/.`);
         return false;
       }
       const contentType = String(wasmResponse.headers.get('content-type') || '').toLowerCase();
@@ -172,7 +231,7 @@
       hideFontWarning();
       return true;
     } catch (error) {
-      showFontWarning(`Peringatan font FigCraft: pemeriksaan bundle gagal (${error && error.message ? error.message : error}).`);
+      showFontWarning(`Peringatan font FigCraft: pemeriksaan bundle WASM gagal (${error && error.message ? error.message : error}).`);
       return false;
     }
   }
@@ -236,9 +295,20 @@
     shell.addEventListener('pointerdown', event => event.stopPropagation(), true);
     shell.addEventListener('wheel', event => event.stopPropagation(), { capture: true, passive: true });
     state.frame.addEventListener('load', () => {
-      // The document load is not the WASM-ready signal. Keep the host loader visible
-      // until the official figcraft:ready message arrives.
-      if (!state.ready && state.active) setStatus('Menyiapkan engine WebAssembly…', 'normal');
+      if (!state.active) return;
+      // A GitHub Pages 404 also fires iframe load. Detect the missing app shell immediately
+      // instead of leaving the user with a spinner until the long timeout expires.
+      let hasCanvas = false;
+      try { hasCanvas = !!state.frame.contentDocument?.getElementById('figcraft_canvas'); } catch (_) {}
+      if (!hasCanvas) {
+        if (state.loadingTimer) window.clearTimeout(state.loadingTimer);
+        showLoading(false);
+        showError(`Halaman FigCraft tidak ditemukan atau belum ter-deploy dengan benar: ${state.frame.src}`);
+        setStatus('FigCraft tidak ditemukan', 'error');
+        return;
+      }
+      if (!state.ready) setStatus('Menyiapkan engine WebAssembly…', 'normal');
+      void diagnoseFontBundle();
     });
   }
 
@@ -267,8 +337,20 @@
     menu.append(divider, button);
   }
 
+  function mozaDirectoryUrl() {
+    const url = new URL(window.location.href);
+    if (!url.pathname.endsWith('/')) {
+      const lastSegment = url.pathname.slice(url.pathname.lastIndexOf('/') + 1);
+      if (lastSegment.includes('.')) url.pathname = url.pathname.slice(0, url.pathname.lastIndexOf('/') + 1);
+      else url.pathname += '/';
+    }
+    url.search = '';
+    url.hash = '';
+    return url;
+  }
+
   function buildFrameUrl() {
-    const url = new URL(APP_PATH, document.baseURI);
+    const url = new URL(APP_PATH, mozaDirectoryUrl());
     url.searchParams.set('host', 'parent');
     // A changing session value forces a clean runtime when switching Moza projects.
     url.searchParams.set('session', `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
@@ -346,7 +428,6 @@
         retry && retry.forEach(button => { button.hidden = false; });
       }
     }, 180000);
-    void diagnoseFontBundle();
     state.frame.src = buildFrameUrl();
   }
 

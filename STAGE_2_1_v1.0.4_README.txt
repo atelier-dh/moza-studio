@@ -1,0 +1,28 @@
+Moza Studio x FigCraft — Stage 2.1 v1.0.4
+Step 1: font/runtime diagnostic and deployment-path correction
+
+Apply this package at the ROOT of the existing moza-studio repository.
+Do not upload the package as an extra nested folder.
+
+Main changed files:
+- .github/workflows/build-deploy-figcraft.yml
+- moza-figcraft-integration.js
+- FIGCRAFT_STAGE2_DEPLOYMENT.md
+- STAGE_2_1_STEP_1_REPORT.md
+- STAGE_2_1_CHANGELOG.md
+
+The existing Trunk.toml is included and preserves:
+  [tools]
+  wasm_opt = "version_131"
+
+The workflow pins Trunk 0.22.1, checks out the pinned craft-fonts repository,
+sets CRAFT_FONTS_REQUIRED=1, cleans the text crate cache before compiling, embeds fonts in the WASM build, inserts a small
+same-origin HTML marker, and verifies the exact /figcraft/ deployment folder.
+
+No FigCraft Rust engine or Moza core state/store/renderer/element/clipboard
+code is changed. Steps 2-4 of Stage 2.1 remain intentionally untouched.
+
+Local checks passed: JavaScript syntax, YAML parsing, workflow shell syntax,
+fixture-based manifest creation, and fixture-based static-site assembly.
+Not run: actual Rust/WASM build, GitHub Actions, GitHub Pages deployment,
+or real-device text rendering.
