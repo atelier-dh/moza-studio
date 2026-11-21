@@ -253,11 +253,11 @@
     shell.setAttribute('aria-label', 'FigCraft Design Editor');
     shell.innerHTML = `
       <header id="mz-fc-header">
+        <button type="button" data-mz-fc-action="back" class="mz-fc-primary mz-fc-back" aria-label="Kembali ke Moza"><span aria-hidden="true">\u2190</span><span class="mz-fc-back-long"> Kembali ke Moza</span><span class="mz-fc-back-short"> Moza</span></button>
         <div id="mz-fc-brand"><strong>FigCraft Design Editor</strong><small>Terintegrasi dengan Moza Studio</small></div>
         <div id="mz-fc-status" role="status" aria-live="polite" data-state="normal">Belum dimuat</div>
         <div id="mz-fc-actions">
-          <button type="button" data-mz-fc-action="retry" hidden>Reload editor</button>
-          <button type="button" data-mz-fc-action="back" class="mz-fc-primary">← Kembali ke Moza</button>
+          <button type="button" data-mz-fc-action="retry" hidden>Reload</button>
         </div>
       </header>
       <div id="mz-fc-stage">
@@ -317,12 +317,16 @@
     if (!top || top.querySelector('[data-mz-fc-open]')) return;
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'btn';
+    button.className = 'btn mz-fc-topbtn';
     button.dataset.mzFcOpen = 'true';
     button.title = 'Open FigCraft Design Editor';
-    button.textContent = '✎ Design Editor';
+    button.setAttribute('aria-label', 'Design Editor');
+    button.innerHTML = '<span class="mz-fc-ico" aria-hidden="true">\u270e</span><span class="mz-fc-lbl"> Design Editor</span>';
+    // Stage 2.1: the Preview button is not always a direct child of #top (desktop wraps it in
+    // .v8-actions), so insert relative to its real parent. The old top.insertBefore() threw
+    // NotFoundError on desktop.
     const preview = top.querySelector('[data-a="preview"]');
-    if (preview) top.insertBefore(button, preview);
+    if (preview && preview.parentNode) preview.parentNode.insertBefore(button, preview);
     else top.appendChild(button);
   }
 
@@ -352,6 +356,9 @@
   function buildFrameUrl() {
     const url = new URL(APP_PATH, mozaDirectoryUrl());
     url.searchParams.set('host', 'parent');
+    // Stage 2.1: same-origin page control channel (window.figcraft), used only to skip the
+    // desktop-style Recents/Templates home screen by creating a blank document.
+    url.searchParams.set('control', '1');
     // A changing session value forces a clean runtime when switching Moza projects.
     url.searchParams.set('session', `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     return url.href;
@@ -371,12 +378,39 @@
     }
   }
 
+  // Stage 2.1 (Step 2): FigCraft in host mode starts on its desktop Recents/Templates home screen,
+  // which is cropped on phones. When Moza has no saved document, create a blank one through the
+  // existing ?control API (window.figcraft.execute -> engine command "file.new").
+  // Best effort: if the API is unavailable the user simply sees FigCraft's normal home screen.
+  async function openBlankDocument() {
+    const started = Date.now();
+    let api = null;
+    while (Date.now() - started < 4000) {
+      try { api = state.frame && state.frame.contentWindow && state.frame.contentWindow.figcraft; } catch (_) { api = null; }
+      if (api && typeof api.execute === 'function') break;
+      api = null;
+      await new Promise(resolve => window.setTimeout(resolve, 200));
+    }
+    if (!api) { console.warn('[Moza FigCraft] window.figcraft not available; home screen stays visible'); return false; }
+    try {
+      await Promise.race([
+        api.execute('file.new', {}),
+        new Promise((_, reject) => window.setTimeout(() => reject(new Error('timeout')), 6000))
+      ]);
+      return true;
+    } catch (error) {
+      console.warn('[Moza FigCraft] could not create a blank document', error);
+      return false;
+    }
+  }
+
   async function openLastSavedDesign() {
     if (state.skipAutoOpen) {
       state.skipAutoOpen = false;
       state.currentFileId = null;
       state.currentFileName = '';
       setStatus('Siap · desain baru', 'normal');
+      void openBlankDocument();
       return;
     }
     const projectId = state.projectId;
@@ -388,6 +422,7 @@
       state.currentFileId = null;
       state.currentFileName = '';
       setStatus('Siap · desain baru', 'normal');
+      void openBlankDocument();
       return;
     }
     const fileKey = record.key || storageKeys.file(record.id);

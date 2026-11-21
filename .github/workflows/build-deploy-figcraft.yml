@@ -1,8 +1,75 @@
+name: Build and deploy Moza Studio + FigCraft
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Moza Studio and FigCraft source
+        uses: actions/checkout@v4
+
+      # FigCraft's web renderer has no access to operating-system font folders.
+      # Match the pinned craft-fonts revision used by the upstream FigCraft release workflow.
+      - name: Checkout pinned FigCraft font assets
+        uses: actions/checkout@v4
+        with:
+          repository: storytold/craft-fonts
+          ref: 37827adc41fd165f9a9234ac40f94dbad353aa69
+          path: figcraft-source/craft-fonts
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install Rust and WebAssembly target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust build files
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            figcraft-source -> figcraft-source/target
+
+      - name: Install pinned Trunk
+        run: |
+          cargo install trunk --version 0.22.1 --locked
+          trunk --version
+
+      - name: Build FigCraft WebAssembly application
+        working-directory: figcraft-source/apps/figcraft-web
+        env:
+          CRAFT_FONTS_DIR: ${{ github.workspace }}/figcraft-source/craft-fonts
+          CRAFT_FONTS_REQUIRED: "1"
+        run: |
+          set -euo pipefail
+          test -f "$CRAFT_FONTS_DIR/fonts/manifest.txt"
+          test -f "$CRAFT_FONTS_DIR/fonts/latin-manifest.txt"
+          # FigCraft documents this clean step when craft-fonts is added after a previous build.
+          # It prevents a restored Rust cache from reusing an empty pre-font catalog.
+          cargo clean -p figcraft-text
+          trunk build --release
+
+      - name: Verify embedded fonts and write diagnostic manifest
+        env:
           CRAFT_FONTS_DIR: ${{ github.workspace }}/figcraft-source/craft-fonts
           CRAFT_FONTS_REF: 37827adc41fd165f9a9234ac40f94dbad353aa69
         run: |
           set -euo pipefail
-          DIST="dist/web"
+          # Use an absolute path so the output location cannot depend on the step working directory.
+          DIST="$GITHUB_WORKSPACE/figcraft-source/dist/web"
           WASM_FILE="$(find "$DIST" -maxdepth 1 -type f -name '*_bg.wasm' -printf '%f\n' | head -n 1)"
           test -n "$WASM_FILE" || { echo "No FigCraft WebAssembly bundle found in $DIST" >&2; exit 1; }
           python3 - "$CRAFT_FONTS_DIR" "$DIST" <<'PYTHON'
@@ -39,7 +106,10 @@
                   target = license_dir / (parts[0].replace(" ", "-") + ".OFL.txt")
                   if not target.exists():
                       shutil.copyfile(license_file, target)
-                      licenses.append(target.name)
+                  if not target.is_file() or target.stat().st_size == 0:
+                      raise SystemExit(f"Empty or missing copied font licence: {target}")
+                  licenses.append(target.name)
+          licenses = sorted(set(licenses))
           if not {"Inter.OFL.txt", "Noto-Sans-Georgian.OFL.txt", "Noto-Sans-Arabic.OFL.txt"}.issubset(set(licenses)):
               raise SystemExit(f"Required embedded font licences are incomplete: {licenses}")
           (dist / "figcraft-fonts.json").write_text(json.dumps({
@@ -55,17 +125,33 @@
               "licences": sorted(licenses)
           }, indent=2) + "\n", encoding="utf-8")
           PYTHON
-          python3 - "$DIST/figcraft-fonts.json" "$WASM_FILE" "$CRAFT_FONTS_REF" <<'PYTHON'
-          import json, sys
+          python3 - "$DIST/figcraft-fonts.json" "$DIST/index.html" "$WASM_FILE" "$CRAFT_FONTS_REF" <<'PYTHON'
+          import json, re, sys
           from pathlib import Path
-          path, wasm_file, fonts_ref = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
-          data = json.loads(path.read_text(encoding="utf-8"))
+          manifest_path, index_path = Path(sys.argv[1]), Path(sys.argv[2])
+          wasm_file, fonts_ref = sys.argv[3], sys.argv[4]
+          data = json.loads(manifest_path.read_text(encoding="utf-8"))
           data["wasmAsset"] = wasm_file
           data["craftFontsRevision"] = fonts_ref
-          path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+          manifest_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+          # Embed a small build marker in the actual FigCraft page. The host can inspect
+          # this same-origin meta tag without requesting a second JSON file at runtime.
+          marker = '<meta name="figcraft-embedded-fonts" content="Inter Regular, Inter SemiBold, Noto Sans Georgian Regular, Noto Sans Arabic Regular">'
+          html = index_path.read_text(encoding="utf-8")
+          if 'name="figcraft-embedded-fonts"' not in html:
+              updated, count = re.subn(r'</head\s*>', marker + '\n</head>', html, count=1, flags=re.IGNORECASE)
+              if count != 1:
+                  raise SystemExit("Could not insert FigCraft embedded-font marker into dist/web/index.html")
+              index_path.write_text(updated, encoding="utf-8")
           PYTHON
+          test -s "$DIST/figcraft-fonts.json"
+          test -s "$DIST/$WASM_FILE"
+          grep -q 'figcraft-embedded-fonts' "$DIST/index.html"
           echo "FigCraft embedded font manifest:"
           cat "$DIST/figcraft-fonts.json"
+          echo "FigCraft page font marker:"
+          grep -o 'figcraft-embedded-fonts[^>]*' "$DIST/index.html"
           ls -lh "$DIST/$WASM_FILE"
 
       - name: Assemble same-origin static website
@@ -73,9 +159,9 @@
         run: |
           set -euo pipefail
           SITE="$RUNNER_TEMP/moza-site"
-          FIGCRAFT_DIST="figcraft-source/dist/web"
-          test -f "$FIGCRAFT_DIST/index.html"
-          test -f "$FIGCRAFT_DIST/figcraft-fonts.json"
+          FIGCRAFT_DIST="$GITHUB_WORKSPACE/figcraft-source/dist/web"
+          test -s "$FIGCRAFT_DIST/index.html"
+          test -s "$FIGCRAFT_DIST/figcraft-fonts.json"
           test -d "$FIGCRAFT_DIST/font-licenses"
           compgen -G "$FIGCRAFT_DIST/*.wasm" >/dev/null
 
@@ -101,7 +187,16 @@
           cp figcraft-source/ATTRIBUTION.md "$SITE/figcraft/ATTRIBUTION.md"
           touch "$SITE/.nojekyll"
 
+          # Fail the job if the exact published folder is missing the runtime files.
+          test -s "$SITE/figcraft/index.html"
+          test -s "$SITE/figcraft/figcraft-fonts.json"
+          grep -q 'figcraft-embedded-fonts' "$SITE/figcraft/index.html"
+          PUBLISHED_WASM="$(find "$SITE/figcraft" -maxdepth 1 -type f -name '*_bg.wasm' -printf '%f\n' | head -n 1)"
+          test -n "$PUBLISHED_WASM"
+          test -s "$SITE/figcraft/$PUBLISHED_WASM"
+
           echo "Static site assembled at $SITE"
+          echo "Verified published FigCraft bundle: $PUBLISHED_WASM"
           find "$SITE/figcraft" -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
 
       - name: Configure GitHub Pages

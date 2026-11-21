@@ -1,0 +1,48 @@
+/* Moza Studio x FigCraft - Stage 2.1 v1.0.5 layout patch (CSS only, no logic changes).
+   Loaded LAST so it wins over earlier rules without touching them.
+
+   [A] Cloud/B2 modal hidden behind the top bar  (PRE-EXISTING bug, not caused by FigCraft)
+       moza-v14.6-canvas-table-editor.js injects  #top{z-index:1200!important}  (V14.6.1, to keep
+       the Advanced dropdown above #dock). #modal is z-index:150, so the 70px top bar painted over
+       the modal header + Close button. Fix: raise the overlays above the top bar and make only the
+       modal body scroll (header/footer stay visible). B2 storage logic is untouched. */
+#modal{ z-index:2000 !important; padding:max(12px,env(safe-area-inset-top,0px)) 12px max(12px,env(safe-area-inset-bottom,0px)) !important; }
+#modal .mbox{ max-height:calc(100vh - 24px) !important; max-height:calc(100dvh - 24px) !important; min-height:0; }
+#modal .mbox > .mhead, #modal .mbox > .mfoot{ flex:none; }
+#modal .mbox > .mbody{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
+#pop{ z-index:2100 !important; }
+#tmenu, #gmenu{ z-index:2200 !important; }
+#toast{ z-index:2300 !important; }
+
+/* [B] Phone top bar: swipeable horizontally, nothing clipped */
+@media (max-width:760px){
+  html, body{ height:100vh; height:100dvh; }
+  #app{ height:100vh; height:100dvh; }
+  #top{
+    overflow-x:auto !important; overflow-y:hidden !important;
+    touch-action:pan-x; -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain;
+    scrollbar-width:none; scroll-snap-type:none;
+    padding-top:calc(5px + env(safe-area-inset-top,0px)) !important;
+    height:calc(56px + env(safe-area-inset-top,0px)) !important;
+    min-height:calc(56px + env(safe-area-inset-top,0px)) !important;
+  }
+  #top::-webkit-scrollbar{ display:none; }
+  #top > *{ flex:0 0 auto; }
+  #top .sp{ flex:0 0 4px; min-width:4px; }
+  #top .m-brand{ display:none; }
+  /* Design Editor: icon only on phones (also available in the "..." menu) */
+  #top .mz-fc-topbtn{ min-width:40px; width:40px; height:40px; padding:0 !important; display:inline-flex; align-items:center; justify-content:center; }
+  #top .mz-fc-topbtn .mz-fc-lbl{ display:none; }
+  /* The Advanced dropdown lives inside the scrolling bar: fix it to the viewport so it is not clipped */
+  #top .mz13-overflow-list{
+    position:fixed !important; right:8px !important; left:auto !important;
+    top:calc(env(safe-area-inset-top,0px) + 62px) !important;
+    max-width:calc(100vw - 16px);
+  }
+  #top .v24-cloud-btn{ display:inline-flex !important; }
+  /* Floating tool dock: swipe sideways for the hidden tools (Skala, Gambar, ...), no scrollbar */
+  #dock{ touch-action:pan-x; scrollbar-width:none; overscroll-behavior-x:contain; }
+  #dock::-webkit-scrollbar{ display:none; }
+  /* Bottom navigation must clear the gesture bar */
+  #rail{ padding-bottom:calc(6px + env(safe-area-inset-bottom,0px)) !important; }
+}
