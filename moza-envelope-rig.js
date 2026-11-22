@@ -199,6 +199,28 @@ var rtFn=mozaRigRuntime.toString();
 mozaRigRuntime();
 
 /* ------------------------------ 1) render: groupHTML (bungkus, bukan tulis ulang) ------------------------------ */
+/* ------------------------------ 1a) rotasi/flip layer rig dipindah ke elemen DALAM ------------------------------
+   Moza menyimpan rotasi sebagai transform:rotate() dan flip sebagai properti scale pada elemen luar, dengan titik putar di tengah.
+   Rig memakai elemen luar itu untuk engsel (transform-origin di tepi flap) dan MENGGANTI transform saat membuka. Akibatnya flap yang
+   di-flip/diputar (a) loncat ke atas sejauh tingginya (di-mirror terhadap tepi atas) dan (b) berayun ke bawah saat dibuka.
+   Perbaikan: untuk layer yang dianimasikan rig (flap; segel mode ikut-flap/mengecil), rotasi + flip dicabut dari elemen luar
+   (lihat CSS [data-rig-mv]) dan dipasang pada anak pertamanya (bentuk/gambar) yang titik putarnya tetap di tengah. */
+function mvFlags(k,role,c){
+  var rot=((+k.rot||0)%360)!==0,fl=!!(k.flipX||k.flipY),f='';
+  if(role==='flap'||(role==='seal'&&(c.sealMode==='follow'||c.sealMode==='shrink'))){if(rot)f+='r';if(fl)f+='f'}
+  return f;
+}
+function moveXform(h,needle,k){
+  var i=h.indexOf(needle);if(i<0)return h;
+  var m=/ style="[^"]*">/.exec(h.slice(i));if(!m)return h;
+  var start=i+m.index+m[0].length,t=/^<[a-zA-Z][a-zA-Z0-9-]*/.exec(h.slice(start));if(!t)return h;
+  var rest=start+t[0].length,rot=+k.rot||0,fl=!!(k.flipX||k.flipY);
+  /* urutan sama dengan aslinya: putar dulu, baru flip (scale di luar rotate) */
+  var tr='transform:'+(fl?'scale('+(k.flipX?-1:1)+','+(k.flipY?-1:1)+') ':'')+(rot?'rotate('+rot+'deg)':'')+';';
+  var sm=/^[^>]*?\sstyle="/.exec(h.slice(rest));
+  if(sm){var at=rest+sm[0].length;return h.slice(0,at)+tr+h.slice(at)}
+  return h.slice(0,rest)+' style="'+tr+'"'+h.slice(rest);
+}
 var _groupHTML=groupHTML;
 groupHTML=function(g,ctx){
   var h=_groupHTML.apply(this,arguments);
@@ -207,7 +229,9 @@ groupHTML=function(g,ctx){
   (g.children||[]).forEach(function(k){
     var r=k.rigRole;if(ROLE_IDS.indexOf(r)<0)return;
     var needle='data-id="'+k.id+'"';
-    h=h.replace(needle,needle+' data-rig-role="'+r+'"'+(r==='decor'&&c.decor==='fade'?' class="rig-fade"':''));
+    var mv=mvFlags(k,r,c);
+    h=h.replace(needle,needle+' data-rig-role="'+r+'"'+(mv?' data-rig-mv="'+mv+'"':'')+(r==='decor'&&c.decor==='fade'?' class="rig-fade"':''));
+    if(mv)h=moveXform(h,needle,k);
   });
   /* class="rig-fade" ganda dengan class milik elemen tidak valid → pindahkan ke atribut data */
   h=h.replace(/ class="rig-fade"/g,' data-rig-fade="1"');
@@ -219,6 +243,19 @@ groupHTML=function(g,ctx){
 };
 /* dekor memudar: data-rig-fade → class lewat CSS atribut */
 CSS+='\n.rig-root.rig-open>[data-rig-role=decor][data-rig-fade]{opacity:0!important}';
+
+/* rot/flip dipindah ke elemen dalam (lihat mvFlags): elemen luar bersih, jadi engsel & animasi rig tidak bentrok */
+CSS+='\n.rig-root.rig-root>[data-rig-mv*=r]{transform:none!important}'
+ +'\n.rig-root.rig-root>[data-rig-mv*=f]{scale:none!important}'
+ +'\n.rig-root.rig-open.rig-root>[data-rig-role=flap][data-rig-mv*=r]{transform:rotateX(var(--rig-ang))!important}'
+ +'\n.rig-root.rig-open[data-rig-dir=down]>[data-rig-role=flap][data-rig-mv*=r]{transform:rotateX(calc(-1*var(--rig-ang)))!important}'
+ +'\n.rig-root.rig-open[data-rig-dir=left]>[data-rig-role=flap][data-rig-mv*=r]{transform:rotateY(calc(-1*var(--rig-ang)))!important}'
+ +'\n.rig-root.rig-open[data-rig-dir=right]>[data-rig-role=flap][data-rig-mv*=r]{transform:rotateY(var(--rig-ang))!important}'
+ +'\n.rig-root.rig-open[data-rig-seal=follow][data-rig-dir=up]>[data-rig-role=seal][data-rig-mv*=r]{transform:rotateX(var(--rig-ang))!important}'
+ +'\n.rig-root.rig-open[data-rig-seal=follow][data-rig-dir=down]>[data-rig-role=seal][data-rig-mv*=r]{transform:rotateX(calc(-1*var(--rig-ang)))!important}'
+ +'\n.rig-root.rig-open[data-rig-seal=follow][data-rig-dir=left]>[data-rig-role=seal][data-rig-mv*=r]{transform:rotateY(calc(-1*var(--rig-ang)))!important}'
+ +'\n.rig-root.rig-open[data-rig-seal=follow][data-rig-dir=right]>[data-rig-role=seal][data-rig-mv*=r]{transform:rotateY(var(--rig-ang))!important}'
+ +'\n.rig-root.rig-open[data-rig-seal=shrink]>[data-rig-role=seal][data-rig-mv*=f]{scale:.3!important}';
 window.MOZA_RIG_CSS=CSS;document.getElementById('moza-rig-css').textContent=CSS+'\n'+CSS_EDIT;
 
 /* ------------------------------ 2) panel di Properties grup ------------------------------ */
