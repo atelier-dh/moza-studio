@@ -1,5 +1,16 @@
 # Envelope Rig — Tahap 1–5 (v1.1.0-s4)
 
+## Perbaikan v1.1.1 — flap yang di-flip / diputar
+Gejala: (1) flap yang diberi Flip atau Rotation 180° berjarak dari badan amplop walau satu grup; (2) saat dibuka, flap itu jatuh ke bawah, bukan naik.
+Penyebab: rig memakai elemen luar layer sebagai engsel (`transform-origin` di tepi atas flap, aktif terus) dan MENGGANTI `transform` saat membuka.
+Moza menyimpan rotasi di `transform:rotate()` dan flip di properti `scale` pada elemen yang sama dengan titik putar di tengah. Hasilnya: flip/rotasi
+me-mirror flap terhadap tepi atas (loncat satu tinggi flap ke atas) dan, saat buka, `scale` flip membalik ayunan rotateX.
+Perbaikan (`moza-envelope-rig.js`): untuk flap (dan segel mode "ikut flap"/"mengecil") rotasi + flip dicabut dari elemen luar (CSS `[data-rig-mv]`, `!important`)
+dan dipasang pada anak pertamanya (`mvFlags` + `moveXform` di wrapper `groupHTML`). Proyek tanpa rig tidak berubah.
+Catatan: proyek lama yang flap-nya sudah digeser untuk menutupi lompatan itu akan terlihat bergeser; kembalikan ke posisi semula.
+Di editor, preview langsung saat memutar lewat handle baru ter-update setelah lepas mouse untuk layer berperan flap.
+Tes: `tests/envelope-rig-flip.test.py`.
+
 Status: Tahap 1–5 selesai dan dites di Chromium. Tahap 6–7 baru dites di level data/DOM, belum di HP sungguhan dan belum lewat UI klip/Project Linking.
 
 ## Tambahan v1.1.0 (Tahap 3–4)
