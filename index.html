@@ -5273,6 +5273,10 @@ function carRuntime(root){
       if(cardH>maxH){const fitScale=maxH/cardH;cardW*=fitScale;cardH*=fitScale}
       cardW=Math.min(cardW,Math.max(70,w*.82));
      }
+     // 3D Curve proporsional: kedalaman & perspektif ikut mengecil bersama ukuran kartu (desain acuan = kartu 180px),
+     // supaya di layar sempit (mobile) busurnya tampak seperti desktop yang diperkecil, bukan terdistorsi.
+     const depthK=arc3d?clamp(cardW/180,.5,1):1;
+     if(arc3d)c.style.perspective=depthK<1?Math.round(1400*depthK)+'px':'';
      pitch=arc3d?cardW*clamp(Number(cfg.step)||1.08,.65,1.5):cardW+clamp(Number(cfg.gap)||24,0,100);
      const total=totalCards*pitch,center=w/2,mid=h*.51;
      if(!initialized){offset=(Number(cfg.start)||0)*pitch;if(cfg.loop===false&&sign<0&&offset===0)offset=(totalCards-1)*pitch;initialized=true}
@@ -5289,7 +5293,7 @@ function carRuntime(root){
       const y=mid-ch/2-(arc3d?rise:8*d*d*layoutScale),card=sl[i];
       const depthValue=Number(cfg.arcDepth),tiltValue=Number(cfg.arcTilt);
       // Side cards recede and turn inward; the center remains the visual anchor.
-      const z=arc3d?-clamp(Number.isFinite(depthValue)?depthValue:150,0,320)*curve:0;
+      const z=arc3d?-clamp(Number.isFinite(depthValue)?depthValue:150,0,320)*curve*depthK:0;
       const rot=arc3d?-(Math.sign(t)||0)*Math.min(40,clamp(Number.isFinite(tiltValue)?tiltValue:22,0,40)*curve):0;
       card.style.position='absolute';card.style.left='0';card.style.top='0';
       card.style.width=cw+'px';card.style.height=ch+'px';
@@ -21241,3 +21245,4 @@ window.__mozaClipboardBuild='V14.1-cross-device-paste';
 <!-- Moza Studio — ENVELOPE RIG (Tahap 1-2): elemen baru, tidak mengubah envelope lama -->
 <script src="./moza-envelope-rig.js?v=rig-s2"></script>
 <script src="./moza-flip-rotate.js?v=rot-r1"></script>
+<script src="./moza-mask-fit.js?v=mask-r2"></script>
